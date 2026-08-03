@@ -66,6 +66,16 @@ def build_parser() -> argparse.ArgumentParser:
                         help="write a Markdown report to FILE")
         sp.add_argument("--json", dest="json_out", default=None, metavar="FILE",
                         help="write raw JSON results to FILE")
+        sp.add_argument("--tasks", action="append", default=None, metavar="PACK",
+                        help="use this task pack instead of the built-in suite "
+                             "(JSON/YAML; repeatable)")
+        sp.add_argument("--add-tasks", dest="add_tasks", action="append",
+                        default=None, metavar="PACK",
+                        help="append this task pack to the current suite (repeatable)")
+        sp.add_argument("--label", default=None,
+                        help="label to tag this run in history (for diffing)")
+        sp.add_argument("--no-save", action="store_true",
+                        help="don't save this run to the history store")
 
     run_p = sub.add_parser("run", help="run the benchmark (default)")
     add_run_options(run_p)
@@ -74,11 +84,24 @@ def build_parser() -> argparse.ArgumentParser:
     list_p.add_argument("--provider", default=None)
     list_p.add_argument("--host", default=None)
 
-    sub.add_parser("tasks", help="list the quality tasks and exit")
+    tasks_p = sub.add_parser("tasks", help="list the quality tasks and exit")
+    tasks_p.add_argument("--tasks", action="append", default=None, metavar="PACK",
+                         help="preview a task pack instead of the built-in suite")
+    tasks_p.add_argument("--add-tasks", dest="add_tasks", action="append",
+                         default=None, metavar="PACK")
+
+    hist_p = sub.add_parser("history", help="list saved runs")
+    hist_p.add_argument("--limit", type=int, default=20)
+
+    diff_p = sub.add_parser("diff", help="diff two saved runs (base -> new)")
+    diff_p.add_argument("a", nargs="?", default=None,
+                        help="base run: 'latest'/'prev', a 1-based index, or a path")
+    diff_p.add_argument("b", nargs="?", default=None,
+                        help="new run (default: latest)")
     return p
 
 
-_COMMANDS = {"run", "list", "tasks"}
+_COMMANDS = {"run", "list", "tasks", "history", "diff"}
 
 
 def _inject_default_command(argv: List[str]) -> List[str]:
@@ -136,12 +159,29 @@ def _select_models(provider, args, console: Console) -> List[ModelInfo]:
     return selected
 
 
+def _resolve_suite(args):
+    """Build a custom suite from --tasks / --add-tasks, or None for built-in."""
+    from .quality import default_suite, load_packs
+
+    tasks = getattr(args, "tasks", None)
+    add_tasks = getattr(args, "add_tasks", None)
+    if not tasks and not add_tasks:
+        return None
+    suite = load_packs(tasks) if tasks else list(default_suite(include_open=True))
+    if add_tasks:
+        suite = suite + load_packs(add_tasks)
+    return suite
+
+
 def _build_runner(provider, args) -> Runner:
     judge = None
     include_open = False
     if getattr(args, "judge", None):
         judge = LLMJudge(provider, args.judge)
         include_open = True
+    suite = _resolve_suite(args)
+    if suite is not None:
+        include_open = include_open or any(t.grader is None for t in suite)
     config = RunConfig(
         max_tokens=args.max_tokens,
         speed_max_tokens=args.speed_tokens,
@@ -155,6 +195,7 @@ def _build_runner(provider, args) -> Runner:
         judge_model=args.judge,
         run_quality=not args.no_quality,
         run_speed=not args.no_speed,
+        suite=suite,
     )
     return Runner(provider, config, judge=judge)
 
@@ -200,28 +241,70 @@ def cmd_list(args, console: Console) -> int:
 def cmd_tasks(args, console: Console) -> int:
     from rich.table import Table
 
-    from .quality import default_suite
+    from .quality import PackError, default_suite
+
+    try:
+        suite = _resolve_suite(args)
+    except PackError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+    if suite is None:
+        suite = default_suite(include_open=True)
 
     t = Table(title="Quality suite", header_style="bold cyan")
     t.add_column("ID", style="bold")
     t.add_column("Category")
     t.add_column("Grading")
-    for task in default_suite(include_open=True):
+    for task in suite:
         grading = "deterministic" if task.grader is not None else "LLM judge"
         t.add_row(task.id, task.category, grading)
     console.print(t)
+    console.print(f"[dim]{len(suite)} tasks[/dim]")
+    return 0
+
+
+def cmd_history(args, console: Console) -> int:
+    from .history import history_table, list_runs
+
+    runs = list_runs()
+    if not runs:
+        console.print("No saved runs yet. Run a benchmark first "
+                      "(runs are saved automatically).")
+        return 0
+    console.print(history_table(runs[: args.limit]))
+    return 0
+
+
+def cmd_diff(args, console: Console) -> int:
+    from .history import HistoryError, diff_table, resolve_ref
+
+    try:
+        if args.a is None and args.b is None:
+            base, new = resolve_ref("prev"), resolve_ref("latest")
+        elif args.b is None:
+            base, new = resolve_ref(args.a), resolve_ref("latest")
+        else:
+            base, new = resolve_ref(args.a), resolve_ref(args.b)
+    except HistoryError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+    console.print(diff_table(base, new))
     return 0
 
 
 def cmd_run(args, console: Console) -> int:
+    from .quality import PackError
+
     try:
         provider = _resolve_provider(args, console)
         models = _select_models(provider, args, console)
+        runner = _build_runner(provider, args)
     except ProviderError as exc:
         console.print(f"[red]error:[/red] {exc}")
         return 1
-
-    runner = _build_runner(provider, args)
+    except PackError as exc:
+        console.print(f"[red]task pack error:[/red] {exc}")
+        return 1
 
     use_tui = _should_use_tui(args, console)
     if use_tui:
@@ -236,6 +319,15 @@ def cmd_run(args, console: Console) -> int:
     if result is None:
         return 1
     _export(result, args, console)
+    if not getattr(args, "no_save", False):
+        from .history import save_run
+
+        try:
+            path = save_run(result, label=getattr(args, "label", None))
+            console.print(f"[green]✓[/green] saved run to [bold]{path}[/bold]  "
+                          "(see `localbench history` / `localbench diff`)")
+        except OSError as exc:
+            console.print(f"[yellow]warning:[/yellow] could not save run: {exc}")
     return 0
 
 
@@ -261,6 +353,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return cmd_list(args, console)
     if command == "tasks":
         return cmd_tasks(args, console)
+    if command == "history":
+        return cmd_history(args, console)
+    if command == "diff":
+        return cmd_diff(args, console)
     # "run" (explicit or injected default) runs the benchmark
     return cmd_run(args, console)
 

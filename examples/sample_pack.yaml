@@ -1,0 +1,27 @@
+# Example task pack (YAML). Requires PyYAML: pip install pyyaml
+# Run with:  localbench --tasks examples/sample_pack.yaml
+name: sample-pack
+description: A tiny example task pack.
+tasks:
+  - id: capital_japan
+    category: factual
+    prompt: "What is the capital of Japan? Answer with just the city name."
+    grader: { type: contains_any, values: ["Tokyo"] }
+    reference: Tokyo
+
+  - id: add_small
+    category: math
+    prompt: "What is 12 + 30? End with the final answer on its own line."
+    grader: { type: exact_number, value: 42 }
+    reference: "42"
+
+  - id: pick_even
+    category: reasoning
+    prompt: "Which of these is even?  A) 3  B) 7  C) 8  D) 9. Respond with only the letter."
+    grader: { type: multiple_choice, value: C }
+    reference: C
+
+  - id: explain_photosynthesis
+    category: open          # no grader -> scored only with --judge
+    prompt: "Explain photosynthesis in one sentence."
+    reference: "Plants convert sunlight, water, and CO2 into glucose and oxygen."

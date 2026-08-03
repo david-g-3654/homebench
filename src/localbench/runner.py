@@ -63,6 +63,8 @@ class RunConfig:
     judge_model: Optional[str] = None
     run_quality: bool = True
     run_speed: bool = True
+    # Custom task suite (from user packs); None => the built-in suite.
+    suite: Optional[List[Task]] = None
 
     def to_dict(self) -> dict:
         return {
@@ -79,6 +81,18 @@ class RunConfig:
             "run_quality": self.run_quality,
             "run_speed": self.run_speed,
         }
+
+
+def resolve_suite(config: "RunConfig", judge_present: bool) -> List[Task]:
+    """The effective task list for a run.
+
+    Uses the config's custom suite if provided, else the built-in suite.
+    Open-ended (grader-less) tasks are dropped unless a judge is available.
+    """
+    base = config.suite if config.suite is not None else default_suite(include_open=True)
+    if not (config.include_open and judge_present):
+        return [t for t in base if t.grader is not None]
+    return list(base)
 
 
 class Runner:
@@ -169,9 +183,7 @@ class Runner:
 
     # ------------------------------------------------------------------
     def _run_quality(self, model: str, observer: Observer) -> List[TaskResult]:
-        cfg = self.config
-        include_open = cfg.include_open and self.judge is not None
-        suite = default_suite(include_open=include_open)
+        suite = resolve_suite(self.config, self.judge is not None)
         results: List[TaskResult] = []
         for task in suite:
             tr = self._run_task(model, task)
