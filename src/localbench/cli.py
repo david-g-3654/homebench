@@ -98,10 +98,30 @@ def build_parser() -> argparse.ArgumentParser:
                         help="base run: 'latest'/'prev', a 1-based index, or a path")
     diff_p.add_argument("b", nargs="?", default=None,
                         help="new run (default: latest)")
+
+    tp = sub.add_parser(
+        "throughput",
+        help="measure batch/concurrent throughput (scales on server backends)")
+    tp.add_argument("-m", "--models", default=None,
+                    help="comma-separated model names (default: all discovered)")
+    tp.add_argument("--limit", type=int, default=None)
+    tp.add_argument("--provider", default=None)
+    tp.add_argument("--host", default=None)
+    tp.add_argument("--concurrency", default="1,2,4,8",
+                    help="comma-separated concurrency levels (default: 1,2,4,8)")
+    tp.add_argument("--requests", type=int, default=None,
+                    help="requests per level (default: auto = 3×concurrency)")
+    tp.add_argument("--max-tokens", type=int, default=128,
+                    help="tokens to generate per request (default: 128)")
+    tp.add_argument("--timeout", type=float, default=300.0)
+    tp.add_argument("--seed", type=int, default=42)
+    tp.add_argument("--no-warmup", action="store_true")
+    tp.add_argument("--json", dest="json_out", default=None, metavar="FILE",
+                    help="write raw throughput results to FILE")
     return p
 
 
-_COMMANDS = {"run", "list", "tasks", "history", "diff"}
+_COMMANDS = {"run", "list", "tasks", "history", "diff", "throughput"}
 
 
 def _inject_default_command(argv: List[str]) -> List[str]:
@@ -292,6 +312,54 @@ def cmd_diff(args, console: Console) -> int:
     return 0
 
 
+def cmd_throughput(args, console: Console) -> int:
+    from .metrics import measure_throughput, parse_levels
+    from .report import throughput_table
+
+    try:
+        provider = _resolve_provider(args, console)
+        models = _select_models(provider, args, console)
+        levels = parse_levels(args.concurrency)
+    except (ProviderError, ValueError) as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+
+    console.print(
+        f"[bold]localbench throughput[/bold] · provider [cyan]{provider.name}[/cyan] "
+        f"· concurrency {levels}\n"
+    )
+    if provider.name in ("ollama", "lmstudio"):
+        console.print(
+            "[dim]note: aggregate throughput only scales if the server batches "
+            "concurrent requests (vLLM, llama.cpp continuous batching, or Ollama "
+            "with OLLAMA_NUM_PARALLEL>1).[/dim]\n"
+        )
+
+    results = []
+    for m in models:
+        def on_start(c, n, name=m.name):
+            console.print(f"  [bold]{name}[/bold]: concurrency {c} ({n} requests)…")
+
+        res = measure_throughput(
+            provider, m.name, concurrency_levels=levels, requests=args.requests,
+            max_tokens=args.max_tokens, temperature=0.0, seed=args.seed,
+            timeout=args.timeout, warmup=not args.no_warmup, on_level_start=on_start,
+        )
+        results.append(res)
+        console.print(throughput_table(res))
+        console.print()
+        provider.unload(m.name)
+
+    if getattr(args, "json_out", None):
+        import json
+
+        with open(args.json_out, "w") as f:
+            json.dump([r.to_dict() for r in results], f, indent=2)
+        console.print(f"[green]✓[/green] wrote throughput results to "
+                      f"[bold]{args.json_out}[/bold]")
+    return 0
+
+
 def cmd_run(args, console: Console) -> int:
     from .quality import PackError
 
@@ -357,6 +425,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return cmd_history(args, console)
     if command == "diff":
         return cmd_diff(args, console)
+    if command == "throughput":
+        return cmd_throughput(args, console)
     # "run" (explicit or injected default) runs the benchmark
     return cmd_run(args, console)
 
