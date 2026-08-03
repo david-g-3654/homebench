@@ -8,11 +8,11 @@
 `localbench` is a single-command TUI that discovers the models installed in your local runner (**Ollama**, **LM Studio**, **llama.cpp**, **vLLM**, or any **OpenAI-compatible** server), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
 
 ```bash
-pipx install git+https://github.com/david-g-3654/localbench
+pipx install git+https://github.com/david-g-3654/homebench
 localbench
 ```
 
-That's it. No config, no API keys, no cloud. _(PyPI release — `pip install localbench` — is planned; see [Install](#install).)_
+That's it. No config, no API keys, no cloud. _(Once released, `pip install homebench` — the command stays `localbench`; see [Install](#install).)_
 
 ---
 
@@ -36,15 +36,22 @@ There are great tools for *one* half of this problem, but nothing local-first th
 
 ## Install
 
-Until a PyPI release lands, install from source:
+Once published to PyPI (the distribution is named **`homebench`**; the command
+and import stay `localbench`):
+
+```bash
+pip install homebench        # then run:  localbench
+```
+
+Until then, install from source:
 
 ```bash
 # isolated, recommended
-pipx install git+https://github.com/david-g-3654/localbench
+pipx install git+https://github.com/david-g-3654/homebench
 
 # or clone and install
-git clone https://github.com/david-g-3654/localbench
-cd localbench
+git clone https://github.com/david-g-3654/homebench
+cd homebench
 pip install .
 ```
 
@@ -116,7 +123,7 @@ The optional `--judge MODEL` flag turns on an LLM-as-judge (any local model) tha
 
 ## Custom task packs
 
-Bring your own evals with a JSON or YAML pack — no Python required. `--tasks` replaces the built-in suite; `--add-tasks` appends to it. YAML needs the optional extra (`pip install "localbench[yaml]"`); JSON works out of the box.
+Bring your own evals with a JSON or YAML pack — no Python required. `--tasks` replaces the built-in suite; `--add-tasks` appends to it. YAML needs the optional extra (`pip install "homebench[yaml]"`); JSON works out of the box.
 
 ```yaml
 # mypack.yaml  —  localbench --tasks mypack.yaml
@@ -178,8 +185,8 @@ On a non-batching setup, aggregate throughput stays flat while latency climbs �
 ## Development
 
 ```bash
-git clone https://github.com/david-g-3654/localbench
-cd localbench
+git clone https://github.com/david-g-3654/homebench
+cd homebench
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest -q
