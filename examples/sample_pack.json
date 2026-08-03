@@ -1,6 +1,6 @@
 {
   "name": "sample-pack",
-  "description": "A tiny example task pack. Run with: localbench --tasks examples/sample_pack.json",
+  "description": "A tiny example task pack. Run with: homebench --tasks examples/sample_pack.json",
   "tasks": [
     {
       "id": "capital_japan",

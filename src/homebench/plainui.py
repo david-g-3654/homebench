@@ -98,7 +98,7 @@ class PlainReporter:
         for n in pending:
             table.add_row(n, self._status_text(n), "–", "–", "–", "–", "–")
 
-        header = Text("localbench — benchmarking local models", style="bold magenta")
+        header = Text("homebench — benchmarking local models", style="bold magenta")
         return Group(header, table)
 
 
@@ -110,7 +110,7 @@ def run_plain(runner: Runner, models: List[ModelInfo], console: Console) -> Benc
     reporter = PlainReporter(models, total_tasks)
 
     console.print(
-        f"[bold]localbench[/bold] · provider [cyan]{runner.provider.name}[/cyan] · "
+        f"[bold]homebench[/bold] · provider [cyan]{runner.provider.name}[/cyan] · "
         f"{len(models)} model(s)\n"
     )
     with Live(reporter.render(), console=console, refresh_per_second=8) as live:

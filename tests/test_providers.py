@@ -1,13 +1,13 @@
 import pytest
 
-from localbench.providers import (
+from homebench.providers import (
     LlamaCppProvider,
     OpenAICompatibleProvider,
     VLLMProvider,
     available_providers,
     get_provider,
 )
-from localbench.providers.openai_compat import normalize_host
+from homebench.providers.openai_compat import normalize_host
 
 
 def test_all_providers_registered():
@@ -16,7 +16,7 @@ def test_all_providers_registered():
 
 
 def test_unknown_provider_raises():
-    from localbench.providers import ProviderError
+    from homebench.providers import ProviderError
 
     with pytest.raises(ProviderError):
         get_provider("nope")
@@ -81,7 +81,7 @@ def test_streaming_generate_parses_content_and_usage(monkeypatch):
         'data: {"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":2}}',
         "data: [DONE]",
     ]
-    import localbench.providers.openai_compat as mod
+    import homebench.providers.openai_compat as mod
     monkeypatch.setattr(mod.httpx, "stream", lambda *a, **k: _FakeStream(lines))
 
     seen = []
@@ -101,7 +101,7 @@ def test_streaming_generate_without_usage_counts_deltas(monkeypatch):
         'data: {"choices":[{"delta":{"content":"c"}}]}',
         "data: [DONE]",
     ]
-    import localbench.providers.openai_compat as mod
+    import homebench.providers.openai_compat as mod
     monkeypatch.setattr(mod.httpx, "stream", lambda *a, **k: _FakeStream(lines))
 
     result = OpenAICompatibleProvider().generate("m", "hi")

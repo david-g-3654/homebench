@@ -1,14 +1,14 @@
 import pytest
 
-from localbench import history
-from localbench.history import (
+from homebench import history
+from homebench.history import (
     HistoryError,
     diff_table,
     list_runs,
     resolve_ref,
     save_run,
 )
-from localbench.models import (
+from homebench.models import (
     BenchmarkResult,
     MemoryMetrics,
     ModelInfo,
@@ -103,6 +103,6 @@ def test_diff_metrics_and_table(tmp_path):
 
 
 def test_home_env_override(tmp_path, monkeypatch):
-    monkeypatch.setenv("LOCALBENCH_HOME", str(tmp_path))
+    monkeypatch.setenv("HOMEBENCH_HOME", str(tmp_path))
     save_run(_make_result(1000.0, [("a", 10.0, 5, 10)]))  # no home arg -> uses env
     assert len(list_runs()) == 1

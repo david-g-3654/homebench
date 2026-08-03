@@ -33,8 +33,8 @@ from ..runner import (
 )
 
 
-class LocalbenchApp(App):
-    TITLE = "localbench"
+class HomebenchApp(App):
+    TITLE = "homebench"
     SUB_TITLE = "local LLM leaderboard"
 
     CSS = """
@@ -158,13 +158,13 @@ class LocalbenchApp(App):
             return
         from ..report import to_markdown
 
-        path = "localbench-report.md"
+        path = "homebench-report.md"
         with open(path, "w") as f:
             f.write(to_markdown(self.result))
         self.notify(f"Saved {path}")
 
 
 def run_tui(runner: Runner, models: List[ModelInfo]) -> Optional[BenchmarkResult]:
-    app = LocalbenchApp(runner, models)
+    app = HomebenchApp(runner, models)
     app.run()
     return app.result

@@ -1,4 +1,4 @@
-from localbench.quality import LLMJudge
+from homebench.quality import LLMJudge
 from tests.fakes import FakeProvider
 
 
@@ -12,13 +12,13 @@ def test_judge_parses_score():
 
 
 def test_runner_includes_open_tasks_with_judge():
-    from localbench.runner import RunConfig, Runner
+    from homebench.runner import RunConfig, Runner
 
     provider = FakeProvider()
     judge = LLMJudge(provider, "smart:8b")
     runner = Runner(provider, RunConfig(sample_rss=False, include_open=True), judge=judge)
     result = runner.run([provider.list_models()[0]])
     r = result.reports[0]
-    from localbench.quality import default_suite
+    from homebench.quality import default_suite
     assert len(r.task_results) == len(default_suite(include_open=True))
     assert any(t.category == "open" for t in r.task_results)

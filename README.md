@@ -1,4 +1,4 @@
-# localbench
+# homebench
 
 **Benchmark the local LLMs you already have — speed, memory, *and* quality — as a live terminal leaderboard.**
 
@@ -6,14 +6,14 @@
 ![Python](https://img.shields.io/pypi/pyversions/homebench)
 ![License](https://img.shields.io/pypi/l/homebench)
 
-`localbench` is a single-command TUI that discovers the models installed in your local runner (**Ollama**, **LM Studio**, **llama.cpp**, **vLLM**, or any **OpenAI-compatible** server), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
+`homebench` is a single-command TUI that discovers the models installed in your local runner (**Ollama**, **LM Studio**, **llama.cpp**, **vLLM**, or any **OpenAI-compatible** server), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
 
 ```bash
 pip install homebench
-localbench
+homebench
 ```
 
-That's it. No config, no API keys, no cloud. _(The PyPI package is `homebench`; the command and import stay `localbench`.)_
+That's it. No config, no API keys, no cloud.
 
 ---
 
@@ -24,7 +24,7 @@ There are great tools for *one* half of this problem, but nothing local-first th
 - [`llama-bench`](https://github.com/ggml-org/llama.cpp) (inside llama.cpp) measures **speed only**.
 - [`lm-evaluation-harness`](https://github.com/EleutherAI/lm-evaluation-harness) measures **quality** but has no polished laptop UX and isn't built around the model runners most people actually use locally.
 
-`localbench` fills the gap: **local-first, zero-config, UX-driven.** Clone-and-run, point it at the models you already pulled, and get an at-a-glance answer to *"which of my local models is actually good, and how fast is it on this laptop?"*
+`homebench` fills the gap: **local-first, zero-config, UX-driven.** Clone-and-run, point it at the models you already pulled, and get an at-a-glance answer to *"which of my local models is actually good, and how fast is it on this laptop?"*
 
 ## What it measures
 
@@ -37,10 +37,8 @@ There are great tools for *one* half of this problem, but nothing local-first th
 
 ## Install
 
-The distribution is named **`homebench`**; the installed command and Python import stay `localbench`.
-
 ```bash
-pip install homebench        # then run:  localbench
+pip install homebench        # then run:  homebench
 ```
 
 Prefer an isolated install? Use [pipx](https://pipx.pypa.io):
@@ -62,33 +60,33 @@ Requires **Python 3.9+**.
 ## Usage
 
 ```bash
-localbench                        # discover all models, run the full benchmark (TUI)
-localbench --no-tui               # plain live renderer (great for piping / CI)
-localbench -m llama3.2,qwen3:8b   # only these models
-localbench --limit 3              # first 3 discovered models
-localbench --provider lmstudio    # use LM Studio instead of auto-detect
-localbench --provider llamacpp    # llama.cpp server (llama-server)
-localbench --provider vllm        # vLLM
-localbench --provider openai --host http://localhost:5000   # any OpenAI-compatible server
-localbench --no-quality           # speed + memory only (fast)
-localbench --no-speed             # quality only
-localbench --judge qwen3:8b       # enable LLM-as-judge (adds open-ended tasks)
-localbench --tasks mypack.yaml    # use a custom task pack instead of the built-in suite
-localbench --add-tasks mypack.yaml  # add a pack on top of the built-in suite
-localbench --label "before tuning"  # tag this run for later diffing
-localbench --md results.md        # also export a Markdown report
-localbench --json results.json    # also export raw JSON
+homebench                        # discover all models, run the full benchmark (TUI)
+homebench --no-tui               # plain live renderer (great for piping / CI)
+homebench -m llama3.2,qwen3:8b   # only these models
+homebench --limit 3              # first 3 discovered models
+homebench --provider lmstudio    # use LM Studio instead of auto-detect
+homebench --provider llamacpp    # llama.cpp server (llama-server)
+homebench --provider vllm        # vLLM
+homebench --provider openai --host http://localhost:5000   # any OpenAI-compatible server
+homebench --no-quality           # speed + memory only (fast)
+homebench --no-speed             # quality only
+homebench --judge qwen3:8b       # enable LLM-as-judge (adds open-ended tasks)
+homebench --tasks mypack.yaml    # use a custom task pack instead of the built-in suite
+homebench --add-tasks mypack.yaml  # add a pack on top of the built-in suite
+homebench --label "before tuning"  # tag this run for later diffing
+homebench --md results.md        # also export a Markdown report
+homebench --json results.json    # also export raw JSON
 
-localbench list                   # just list discovered models
-localbench tasks                  # show the quality suite (add --tasks to preview a pack)
-localbench history                # list past runs (saved automatically)
-localbench diff                   # diff the two most recent runs
-localbench diff 3 1               # diff run #3 (base) against run #1 (newer)
-localbench throughput             # batch-throughput sweep (concurrency 1,2,4,8)
-localbench throughput --concurrency 1,8,16 --provider vllm
+homebench list                   # just list discovered models
+homebench tasks                  # show the quality suite (add --tasks to preview a pack)
+homebench history                # list past runs (saved automatically)
+homebench diff                   # diff the two most recent runs
+homebench diff 3 1               # diff run #3 (base) against run #1 (newer)
+homebench throughput             # batch-throughput sweep (concurrency 1,2,4,8)
+homebench throughput --concurrency 1,8,16 --provider vllm
 ```
 
-Run `localbench --help` for the full flag list.
+Run `homebench --help` for the full flag list.
 
 ### Example output
 
@@ -119,7 +117,7 @@ Auto-detection tries Ollama → LM Studio → llama.cpp → vLLM (the generic `o
 
 ## How quality grading works
 
-The suite is small on purpose — enough tasks across categories to *separate* models, few enough that every model runs in a couple of minutes on a laptop. Each task is graded deterministically (exact numeric match, multiple-choice letter, substring, valid-JSON, regex). Temperature is 0 and a fixed seed is used for reproducibility. See `localbench tasks` for the list.
+The suite is small on purpose — enough tasks across categories to *separate* models, few enough that every model runs in a couple of minutes on a laptop. Each task is graded deterministically (exact numeric match, multiple-choice letter, substring, valid-JSON, regex). Temperature is 0 and a fixed seed is used for reproducibility. See `homebench tasks` for the list.
 
 The optional `--judge MODEL` flag turns on an LLM-as-judge (any local model) that scores open-ended tasks 1–5 against a reference answer. It's a signal, not an oracle.
 
@@ -128,7 +126,7 @@ The optional `--judge MODEL` flag turns on an LLM-as-judge (any local model) tha
 Bring your own evals with a JSON or YAML pack — no Python required. `--tasks` replaces the built-in suite; `--add-tasks` appends to it. YAML needs the optional extra (`pip install "homebench[yaml]"`); JSON works out of the box.
 
 ```yaml
-# mypack.yaml  —  localbench --tasks mypack.yaml
+# mypack.yaml  —  homebench --tasks mypack.yaml
 name: my-pack
 tasks:
   - id: capital_japan
@@ -146,27 +144,27 @@ tasks:
     reference: "Plants convert sunlight, water, and CO2 into glucose and oxygen."
 ```
 
-Grader `type` values: `exact_number` (`value`, `tol`), `multiple_choice` (`value`), `contains_any` (`values`), `regex` (`pattern`, `ignorecase`), `valid_json` (`keys`), `valid_json_array` (`length`). Omit `grader` for a judge-only task. Runnable examples live in [`examples/`](examples/); preview any pack with `localbench tasks --tasks mypack.yaml`.
+Grader `type` values: `exact_number` (`value`, `tol`), `multiple_choice` (`value`), `contains_any` (`values`), `regex` (`pattern`, `ignorecase`), `valid_json` (`keys`), `valid_json_array` (`length`). Omit `grader` for a judge-only task. Runnable examples live in [`examples/`](examples/); preview any pack with `homebench tasks --tasks mypack.yaml`.
 
 ## History & diffing
 
-Every run is saved automatically to `$LOCALBENCH_HOME/runs` (default `~/.localbench/runs`); disable with `--no-save`, and tag runs with `--label`.
+Every run is saved automatically to `$HOMEBENCH_HOME/runs` (default `~/.homebench/runs`); disable with `--no-save`, and tag runs with `--label`.
 
 ```bash
-localbench history            # table of past runs (newest first)
-localbench diff               # previous run -> latest
-localbench diff 3             # run #3 -> latest
-localbench diff 3 1           # run #3 (base) -> run #1 (newer)
+homebench history            # table of past runs (newest first)
+homebench diff               # previous run -> latest
+homebench diff 3             # run #3 -> latest
+homebench diff 3 1           # run #3 (base) -> run #1 (newer)
 ```
 
 `diff` compares models by name and shows per-model deltas in quality and throughput, plus which models were added or removed between runs — handy for "did that quantization / setting actually help?"
 
 ## Batch throughput
 
-The main leaderboard measures **single-stream** tok/s. Servers that batch requests (vLLM, llama.cpp continuous batching, Ollama with `OLLAMA_NUM_PARALLEL>1`) can do far more total work under concurrency — `localbench throughput` measures that:
+The main leaderboard measures **single-stream** tok/s. Servers that batch requests (vLLM, llama.cpp continuous batching, Ollama with `OLLAMA_NUM_PARALLEL>1`) can do far more total work under concurrency — `homebench throughput` measures that:
 
 ```bash
-localbench throughput -m my-model --concurrency 1,2,4,8
+homebench throughput -m my-model --concurrency 1,2,4,8
 ```
 
 It fires N requests at each concurrency level (N defaults to 3×concurrency) and reports **aggregate** tok/s (total output ÷ wall-clock), the speedup vs. concurrency 1, mean per-request rate, and latency (mean / p95):

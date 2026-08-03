@@ -2,11 +2,10 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# Distribution name is "homebench" (the name "localbench" is taken on PyPI);
-# the installed command and the importable package remain "localbench".
+# Published to PyPI as "homebench" (the name "localbench" was already taken).
 [project]
 name = "homebench"
-version = "0.1.0"
+version = "0.2.0"
 description = "A single-command terminal UI that benchmarks the local LLMs you already have — speed, memory, and quality — on your own laptop."
 readme = "README.md"
 license = { text = "MIT" }
@@ -48,7 +47,7 @@ Repository = "https://github.com/david-g-3654/homebench"
 Issues = "https://github.com/david-g-3654/homebench/issues"
 
 [project.scripts]
-localbench = "localbench.cli:main"
+homebench = "homebench.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

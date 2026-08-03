@@ -1,7 +1,7 @@
 """Historical runs: save results, list past runs, and diff two of them.
 
-Runs are stored as JSON under ``$LOCALBENCH_HOME/runs`` (default
-``~/.localbench/runs``). Each file is a full :meth:`BenchmarkResult.to_dict`
+Runs are stored as JSON under ``$HOMEBENCH_HOME/runs`` (default
+``~/.homebench/runs``). Each file is a full :meth:`BenchmarkResult.to_dict`
 plus a little metadata (label, version, saved-at).
 """
 
@@ -28,7 +28,7 @@ class HistoryError(RuntimeError):
 
 # ---- locations -------------------------------------------------------------
 def default_home() -> str:
-    return os.environ.get("LOCALBENCH_HOME") or os.path.expanduser("~/.localbench")
+    return os.environ.get("HOMEBENCH_HOME") or os.path.expanduser("~/.homebench")
 
 
 def runs_dir(home: Optional[str] = None) -> str:
@@ -146,7 +146,7 @@ def resolve_ref(ref: str, home: Optional[str] = None) -> RunRecord:
             if rec is None:
                 raise HistoryError(f"could not read run file {candidate!r}")
             return rec
-    raise HistoryError(f"no run matching {ref!r} (try `localbench history`)")
+    raise HistoryError(f"no run matching {ref!r} (try `homebench history`)")
 
 
 def _need(runs: List[RunRecord], n: int) -> None:

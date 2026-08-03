@@ -1,4 +1,4 @@
-"""Data models shared across localbench.
+"""Data models shared across homebench.
 
 Everything the runner produces is a plain dataclass so results serialize
 cleanly to JSON and are trivial to test.

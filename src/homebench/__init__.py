@@ -1,7 +1,7 @@
-"""localbench — benchmark the local LLMs you already have, on your own laptop.
+"""homebench — benchmark the local LLMs you already have, on your own laptop.
 
 Speed (tokens/sec, time-to-first-token), memory footprint, and a small quality
 suite — rendered as a live comparison leaderboard in your terminal.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

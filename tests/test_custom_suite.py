@@ -1,6 +1,6 @@
-from localbench.quality import Task
-from localbench.quality.graders import contains_any
-from localbench.runner import RunConfig, Runner, resolve_suite
+from homebench.quality import Task
+from homebench.quality.graders import contains_any
+from homebench.runner import RunConfig, Runner, resolve_suite
 from tests.fakes import FakeProvider
 
 
@@ -22,7 +22,7 @@ def test_resolve_suite_keeps_open_with_judge():
 
 
 def test_resolve_suite_defaults_to_builtin():
-    from localbench.quality import default_suite
+    from homebench.quality import default_suite
 
     cfg = RunConfig()
     assert len(resolve_suite(cfg, judge_present=False)) == len(default_suite())
