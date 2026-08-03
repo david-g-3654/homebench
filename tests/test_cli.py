@@ -1,4 +1,4 @@
-from localbench.cli import _inject_default_command, build_parser
+from homebench.cli import _inject_default_command, build_parser
 
 
 def test_inject_default_command():

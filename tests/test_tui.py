@@ -2,8 +2,8 @@ import asyncio
 
 from textual.widgets import DataTable
 
-from localbench.runner import RunConfig, Runner
-from localbench.tui.app import LocalbenchApp
+from homebench.runner import RunConfig, Runner
+from homebench.tui.app import HomebenchApp
 from tests.fakes import FakeProvider
 
 
@@ -13,7 +13,7 @@ def test_tui_runs_and_fills_leaderboard():
     models = provider.list_models()
 
     async def scenario():
-        app = LocalbenchApp(runner, models)
+        app = HomebenchApp(runner, models)
         async with app.run_test() as pilot:
             for _ in range(200):
                 if app.result is not None:

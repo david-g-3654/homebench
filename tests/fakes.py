@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from localbench.models import MemoryMetrics, ModelInfo, SpeedMetrics
-from localbench.providers.base import GenerationResult, Provider, TokenCallback
-from localbench.quality import default_suite
+from homebench.models import MemoryMetrics, ModelInfo, SpeedMetrics
+from homebench.providers.base import GenerationResult, Provider, TokenCallback
+from homebench.quality import default_suite
 
 # An "oracle": answer every task with its own reference. This keeps the
 # canned-answer test meaningful as the suite grows, and only works because

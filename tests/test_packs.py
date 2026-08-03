@@ -3,8 +3,8 @@ import os
 
 import pytest
 
-from localbench.quality import default_suite, load_pack, load_packs
-from localbench.quality.packs import PackError
+from homebench.quality import default_suite, load_pack, load_packs
+from homebench.quality.packs import PackError
 
 EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "examples")
 

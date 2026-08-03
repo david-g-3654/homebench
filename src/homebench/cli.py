@@ -1,4 +1,4 @@
-"""Command-line entry point for localbench."""
+"""Command-line entry point for homebench."""
 
 from __future__ import annotations
 
@@ -17,11 +17,11 @@ from .runner import RunConfig, Runner
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="localbench",
+        prog="homebench",
         description="Benchmark the local LLMs you already have — speed, memory, "
         "and quality — as a live terminal leaderboard.",
     )
-    p.add_argument("--version", action="version", version=f"localbench {__version__}")
+    p.add_argument("--version", action="version", version=f"homebench {__version__}")
     sub = p.add_subparsers(dest="command")
 
     # ---- shared run options (also used when no subcommand is given) ----
@@ -125,7 +125,7 @@ _COMMANDS = {"run", "list", "tasks", "history", "diff", "throughput"}
 
 
 def _inject_default_command(argv: List[str]) -> List[str]:
-    """Make ``run`` the default: `localbench --no-tui` == `localbench run --no-tui`.
+    """Make ``run`` the default: `homebench --no-tui` == `homebench run --no-tui`.
 
     Global help/version are left for the top-level parser to handle.
     """
@@ -325,7 +325,7 @@ def cmd_throughput(args, console: Console) -> int:
         return 1
 
     console.print(
-        f"[bold]localbench throughput[/bold] · provider [cyan]{provider.name}[/cyan] "
+        f"[bold]homebench throughput[/bold] · provider [cyan]{provider.name}[/cyan] "
         f"· concurrency {levels}\n"
     )
     if provider.name in ("ollama", "lmstudio"):
@@ -393,7 +393,7 @@ def cmd_run(args, console: Console) -> int:
         try:
             path = save_run(result, label=getattr(args, "label", None))
             console.print(f"[green]✓[/green] saved run to [bold]{path}[/bold]  "
-                          "(see `localbench history` / `localbench diff`)")
+                          "(see `homebench history` / `homebench diff`)")
         except OSError as exc:
             console.print(f"[yellow]warning:[/yellow] could not save run: {exc}")
     return 0

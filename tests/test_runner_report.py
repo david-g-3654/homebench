@@ -1,8 +1,8 @@
 import json
 
-from localbench.quality import default_suite
-from localbench.report import rank_reports, to_json, to_markdown
-from localbench.runner import RunConfig, Runner
+from homebench.quality import default_suite
+from homebench.report import rank_reports, to_json, to_markdown
+from homebench.runner import RunConfig, Runner
 from tests.fakes import FakeProvider
 
 SUITE_SIZE = len(default_suite(include_open=False))
@@ -61,7 +61,7 @@ def test_ranking_quality_then_speed():
 def test_markdown_and_json_export():
     _, result = _run()
     md = to_markdown(result)
-    assert "# localbench results" in md
+    assert "# homebench results" in md
     assert "## Leaderboard" in md
     assert "fast:1b" in md and "smart:8b" in md
     assert "Quality by category" in md

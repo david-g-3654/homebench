@@ -1,8 +1,8 @@
-# Releasing localbench to PyPI
+# Releasing homebench to PyPI
 
-Published to PyPI under the distribution name **`homebench`** (the name
-`localbench` was already taken); the installed command and importable package
-stay `localbench`. Uses the **setuptools** build backend (`pyproject.toml`),
+Published to PyPI as **`homebench`** (the name `localbench` was already taken,
+which is why the whole project uses `homebench` — distribution, command, and
+`import homebench`). Uses the **setuptools** build backend (`pyproject.toml`),
 built with [`build`](https://pypi.org/project/build/) and uploaded with
 [`twine`](https://pypi.org/project/twine/).
 
@@ -43,7 +43,7 @@ built with [`build`](https://pypi.org/project/build/) and uploaded with
    twine upload --repository testpypi dist/*
    pipx install --index-url https://test.pypi.org/simple/ \
        --pip-args="--extra-index-url https://pypi.org/simple" homebench
-   localbench --version
+   homebench --version
    ```
 
 5. Upload to **PyPI**:
@@ -60,10 +60,9 @@ built with [`build`](https://pypi.org/project/build/) and uploaded with
 
 ## Notes
 
-- Distribution name is `homebench` (`localbench` is taken); confirm it's still
-  free at <https://pypi.org/project/homebench/> before the first upload. The
-  installed command / import stay `localbench` — this split is set in
-  `pyproject.toml` (`[project].name` vs `[project.scripts]`).
-- Version numbers can't be reused on PyPI — always bump before re-uploading.
+- The project name is `homebench` throughout — distribution, the `homebench`
+  command (`[project.scripts]`), and `import homebench` (`[project].name`).
+- Version numbers can't be reused on PyPI — always bump `version` in
+  `pyproject.toml` before re-uploading (current: 0.2.0).
 - Optional extras: `homebench[yaml]` (YAML task packs), `homebench[dev]`
   (tests), `homebench[publish]` (build/twine).

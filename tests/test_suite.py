@@ -2,7 +2,7 @@
 
 import pytest
 
-from localbench.quality import default_suite, suite_categories
+from homebench.quality import default_suite, suite_categories
 
 
 DETERMINISTIC = [t for t in default_suite(include_open=True) if t.grader is not None]

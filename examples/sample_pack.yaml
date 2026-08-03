@@ -1,5 +1,5 @@
 # Example task pack (YAML). Requires PyYAML: pip install pyyaml
-# Run with:  localbench --tasks examples/sample_pack.yaml
+# Run with:  homebench --tasks examples/sample_pack.yaml
 name: sample-pack
 description: A tiny example task pack.
 tasks:

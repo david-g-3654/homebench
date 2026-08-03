@@ -1,5 +1,5 @@
-from localbench.models import SpeedMetrics
-from localbench.providers.ollama import OllamaProvider, _normalize_host
+from homebench.models import SpeedMetrics
+from homebench.providers.ollama import OllamaProvider, _normalize_host
 
 
 def test_normalize_host():

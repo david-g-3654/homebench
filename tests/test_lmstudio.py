@@ -1,5 +1,5 @@
-from localbench.providers import available_providers, get_provider
-from localbench.providers.lmstudio import LMStudioProvider
+from homebench.providers import available_providers, get_provider
+from homebench.providers.lmstudio import LMStudioProvider
 
 
 def test_lmstudio_registered():
@@ -32,7 +32,7 @@ def test_native_model_parsing(monkeypatch):
         def raise_for_status(self): pass
         def json(self): return sample
 
-    import localbench.providers.lmstudio as mod
+    import homebench.providers.lmstudio as mod
     monkeypatch.setattr(mod.httpx, "get", lambda *a, **k: _Resp())
 
     models = LMStudioProvider().list_models()

@@ -1,12 +1,12 @@
 import pytest
 
-from localbench.metrics.throughput import (
+from homebench.metrics.throughput import (
     ThroughputResult,
     measure_throughput,
     parse_levels,
 )
-from localbench.providers.base import ProviderError
-from localbench.report import throughput_table
+from homebench.providers.base import ProviderError
+from homebench.report import throughput_table
 from tests.fakes import FakeProvider
 
 
