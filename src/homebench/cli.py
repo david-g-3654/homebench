@@ -129,6 +129,16 @@ def build_parser() -> argparse.ArgumentParser:
                      help="evaluate a specific quant (e.g. Q4_K_M) instead of the best")
     fit.add_argument("--catalog", action="append", default=None, metavar="FILE",
                      help="add models from a JSON catalog file (repeatable)")
+    fit.add_argument("--online", action="store_true",
+                     help="source models from the HuggingFace Hub (top by popularity) "
+                          "instead of the built-in catalog")
+    fit.add_argument("--top", type=int, default=50, metavar="N",
+                     help="with --online, how many models to fetch (default: 50)")
+    fit.add_argument("--sort", default="downloads",
+                     choices=["downloads", "trending", "likes"],
+                     help="with --online, ranking to pull the top models by")
+    fit.add_argument("--refresh", action="store_true",
+                     help="with --online, bypass the cache and refetch")
     fit.add_argument("--ram", type=float, default=None, metavar="GB",
                      help="override detected system RAM (GB) for what-if planning")
     fit.add_argument("--vram", type=float, default=None, metavar="GB",
@@ -344,7 +354,19 @@ def cmd_fit(args, console: Console) -> int:
         console.print("[red]error:[/red] --context must be >= 256")
         return 1
 
-    models = list(CATALOG)
+    source_note = "built-in catalog"
+    if getattr(args, "online", False):
+        from .hub import HubError, top_models
+        try:
+            models, source_note = top_models(limit=args.top, sort=args.sort,
+                                             refresh=args.refresh)
+        except HubError as exc:
+            console.print(f"[yellow]warning:[/yellow] {exc}")
+            console.print("[dim]falling back to the built-in catalog.[/dim]")
+            models = list(CATALOG)
+    else:
+        models = list(CATALOG)
+
     if getattr(args, "catalog", None):
         try:
             for path in args.catalog:
@@ -363,7 +385,7 @@ def cmd_fit(args, console: Console) -> int:
 
     budget, _label = hw.memory_budget()
     console.print(hardware_table(hw))
-    console.print()
+    console.print(f"[dim]Models: {source_note} · {len(models)} candidates[/dim]\n")
     results = evaluate_catalog(budget, context=args.context, quant=args.quant,
                                catalog=models)
     console.print(fit_table(results, show_all=args.all))
