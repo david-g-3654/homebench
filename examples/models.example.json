@@ -1,0 +1,18 @@
+{
+  "_comment": "Extra models for `homebench fit --catalog examples/models.example.json`. name + params_b are required; family/ollama/hf are optional.",
+  "models": [
+    {
+      "name": "My Finetune 7B",
+      "params_b": 7.6,
+      "family": "qwen2",
+      "ollama": "my-finetune:7b",
+      "hf": "my-org/my-finetune-7b"
+    },
+    {
+      "name": "Nemotron 4 340B",
+      "params_b": 340,
+      "family": "nemotron",
+      "hf": "nvidia/Nemotron-4-340B-Instruct"
+    }
+  ]
+}
