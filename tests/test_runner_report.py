@@ -1,8 +1,11 @@
 import json
 
+from localbench.quality import default_suite
 from localbench.report import rank_reports, to_json, to_markdown
 from localbench.runner import RunConfig, Runner
 from tests.fakes import FakeProvider
+
+SUITE_SIZE = len(default_suite(include_open=False))
 
 
 def _run(**cfg_kwargs):
@@ -21,15 +24,15 @@ def test_runner_produces_report_per_model():
         assert r.error is None
         assert r.speed.tokens_per_sec > 0
         assert r.quality_score is not None
-        assert len(r.task_results) == 10  # non-open suite
+        assert len(r.task_results) == SUITE_SIZE
 
 
 def test_all_canned_answers_pass():
     _, result = _run()
     for r in result.reports:
-        # FakeProvider answers every deterministic task correctly
+        # FakeProvider answers every deterministic task with its reference
         assert r.quality_score == 100.0
-        assert r.tasks_passed == 10
+        assert r.tasks_passed == SUITE_SIZE
 
 
 def test_unload_called_between_models():
@@ -45,7 +48,7 @@ def test_events_emitted():
     assert "run_start" in seen
     assert "model_done" in seen
     assert "run_done" in seen
-    assert seen.count("task_done") == 20  # 10 tasks x 2 models
+    assert seen.count("task_done") == SUITE_SIZE * 2
 
 
 def test_ranking_quality_then_speed():
@@ -66,7 +69,7 @@ def test_markdown_and_json_export():
     data = json.loads(to_json(result))
     assert data["provider"] == "ollama"
     assert len(data["reports"]) == 2
-    assert data["reports"][0]["tasks_total"] == 10
+    assert data["reports"][0]["tasks_total"] == SUITE_SIZE
 
 
 def test_speed_only_skips_quality():

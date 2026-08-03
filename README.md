@@ -2,7 +2,7 @@
 
 **Benchmark the local LLMs you already have — speed, memory, *and* quality — as a live terminal leaderboard.**
 
-`localbench` is a single-command TUI that discovers the models installed in your local runner (Ollama today), runs a small curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
+`localbench` is a single-command TUI that discovers the models installed in your local runner (**Ollama** and **LM Studio**), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
 
 ```
 pip install localbench
@@ -29,23 +29,24 @@ There are great tools for *one* half of this problem, but nothing local-first th
 | **tok/s** | Output tokens ÷ generation time, reported by the runner (excludes prompt processing and model load). |
 | **TTFT** | Wall-clock time to the first streamed token, minus model-load time. |
 | **Memory** | Resident model size from the runner (`/api/ps`), plus a best-effort peak-RSS sample. |
-| **Quality** | A curated suite across math, reasoning, factual recall, instruction-following, extraction, and code understanding — deterministically graded. Optional **LLM-as-judge** adds open-ended tasks. |
+| **Quality** | 31 deterministically-graded tasks across math, reasoning, factual recall, instruction-following/structured-output, extraction, and code understanding. Optional **LLM-as-judge** adds open-ended tasks (summaries, email, haiku, explanations). |
 
 ## Usage
 
 ```bash
-localbench                      # discover all models, run the full benchmark (TUI)
-localbench --no-tui             # plain live renderer (great for piping / CI)
-localbench -m llama3.2,qwen3:8b # only these models
-localbench --limit 3            # first 3 discovered models
-localbench --no-quality         # speed + memory only (fast)
-localbench --no-speed           # quality only
-localbench --judge qwen3:8b     # enable LLM-as-judge (adds open-ended tasks)
-localbench --md results.md      # also export a Markdown report
-localbench --json results.json  # also export raw JSON
+localbench                        # discover all models, run the full benchmark (TUI)
+localbench --no-tui               # plain live renderer (great for piping / CI)
+localbench -m llama3.2,qwen3:8b   # only these models
+localbench --limit 3              # first 3 discovered models
+localbench --provider lmstudio    # use LM Studio instead of auto-detect
+localbench --no-quality           # speed + memory only (fast)
+localbench --no-speed             # quality only
+localbench --judge qwen3:8b       # enable LLM-as-judge (adds open-ended tasks)
+localbench --md results.md        # also export a Markdown report
+localbench --json results.json    # also export raw JSON
 
-localbench list                 # just list discovered models
-localbench tasks                # show the quality suite
+localbench list                   # just list discovered models
+localbench tasks                  # show the quality suite
 ```
 
 Run `localbench --help` for the full flag list.
@@ -66,8 +67,10 @@ Run `localbench --help` for the full flag list.
 ## Requirements
 
 - Python 3.9+
-- A local model runner. **Ollama** is supported today (`ollama serve` running, at least one model pulled).
-  - Point at a non-default host with `--host` or the `OLLAMA_HOST` env var.
+- A local model runner — at least one of:
+  - **Ollama**: `ollama serve` running with a model pulled. Non-default host via `--host` or `OLLAMA_HOST`.
+  - **LM Studio**: the local server enabled (default `http://localhost:1234`), with a model loaded. Non-default host via `--host` or `LMSTUDIO_HOST`.
+- Auto-detection tries Ollama first, then LM Studio. Force one with `--provider ollama|lmstudio`.
 
 ## How quality grading works
 
@@ -77,8 +80,8 @@ The optional `--judge MODEL` flag turns on an LLM-as-judge (any local model) tha
 
 ## Roadmap
 
-- More providers (LM Studio, llama.cpp server)
-- Larger / pluggable task packs
+- More providers (llama.cpp server, vLLM, OpenAI-compatible endpoints)
+- Pluggable / user-supplied task packs
 - Historical runs & diffing
 
 ## License
