@@ -36,6 +36,11 @@ class Provider(ABC):
     #: short, stable identifier (also the CLI ``--provider`` value)
     name: str = "base"
 
+    @property
+    def process_hint(self) -> str:
+        """Substring used to find this backend's processes for RSS sampling."""
+        return self.name
+
     @abstractmethod
     def is_available(self) -> bool:
         """True if the backend is reachable right now."""

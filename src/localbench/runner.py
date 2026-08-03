@@ -139,7 +139,7 @@ class Runner:
         mem = MemoryMetrics()
         rss_peak_delta = 0
         for _ in range(max(1, cfg.repeat)):
-            sampler = RSSSampler(name_contains=self.provider.name) if cfg.sample_rss else None
+            sampler = RSSSampler(name_contains=self.provider.process_hint) if cfg.sample_rss else None
             if sampler is not None:
                 sampler.__enter__()
             gen = self.provider.generate(

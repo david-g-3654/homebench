@@ -19,6 +19,6 @@ def test_runner_includes_open_tasks_with_judge():
     runner = Runner(provider, RunConfig(sample_rss=False, include_open=True), judge=judge)
     result = runner.run([provider.list_models()[0]])
     r = result.reports[0]
-    # 10 deterministic + 2 open == 12 tasks
-    assert len(r.task_results) == 12
+    from localbench.quality import default_suite
+    assert len(r.task_results) == len(default_suite(include_open=True))
     assert any(t.category == "open" for t in r.task_results)

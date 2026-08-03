@@ -73,10 +73,22 @@ def build_parser() -> argparse.ArgumentParser:
     list_p.add_argument("--host", default=None)
 
     sub.add_parser("tasks", help="list the quality tasks and exit")
-
-    # allow bare `localbench` (no subcommand) to accept run options too
-    add_run_options(p)
     return p
+
+
+_COMMANDS = {"run", "list", "tasks"}
+
+
+def _inject_default_command(argv: List[str]) -> List[str]:
+    """Make ``run`` the default: `localbench --no-tui` == `localbench run --no-tui`.
+
+    Global help/version are left for the top-level parser to handle.
+    """
+    if not argv:
+        return ["run"]
+    if argv[0] in _COMMANDS or argv[0] in ("-h", "--help", "--version"):
+        return argv
+    return ["run"] + argv
 
 
 # ---------------------------------------------------------------------------
@@ -236,8 +248,10 @@ def _should_use_tui(args, console: Console) -> bool:
 
 # ---------------------------------------------------------------------------
 def main(argv: Optional[List[str]] = None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(_inject_default_command(argv))
     console = Console()
 
     command = getattr(args, "command", None)
@@ -245,7 +259,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return cmd_list(args, console)
     if command == "tasks":
         return cmd_tasks(args, console)
-    # default (None) and explicit "run" both run the benchmark
+    # "run" (explicit or injected default) runs the benchmark
     return cmd_run(args, console)
 
 

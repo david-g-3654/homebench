@@ -92,13 +92,16 @@ def regex_match(pattern: str, flags: int = re.IGNORECASE) -> Grader:
     return grade
 
 
-def _extract_json(text: str) -> str:
-    """Pull the first JSON object out of a response, tolerating code fences."""
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+def _extract_json(text: str, open_ch: str = "{", close_ch: str = "}") -> str:
+    """Pull the first JSON value out of a response, tolerating code fences."""
+    fenced = re.search(
+        r"```(?:json)?\s*(" + re.escape(open_ch) + r".*?" + re.escape(close_ch) + r")\s*```",
+        text, re.DOTALL,
+    )
     if fenced:
         return fenced.group(1)
-    brace = re.search(r"\{.*\}", text, re.DOTALL)
-    return brace.group(0) if brace else text
+    span = re.search(re.escape(open_ch) + r".*" + re.escape(close_ch), text, re.DOTALL)
+    return span.group(0) if span else text
 
 
 def valid_json(required_keys: Sequence[str] = ()) -> Grader:
@@ -116,6 +119,24 @@ def valid_json(required_keys: Sequence[str] = ()) -> Grader:
         if missing:
             return Grade(0.0, False, f"missing keys: {missing}")
         return Grade(1.0, True, "valid JSON with required keys")
+
+    return grade
+
+
+def valid_json_array(length: int = None) -> Grader:
+    """Pass if the response contains a JSON array (optionally of exact length)."""
+
+    def grade(response: str) -> Grade:
+        raw = _extract_json(response, "[", "]")
+        try:
+            obj = json.loads(raw)
+        except (json.JSONDecodeError, ValueError) as exc:
+            return Grade(0.0, False, f"invalid JSON: {exc}")
+        if not isinstance(obj, list):
+            return Grade(0.0, False, "JSON is not an array")
+        if length is not None and len(obj) != length:
+            return Grade(0.0, False, f"array length {len(obj)}, expected {length}")
+        return Grade(1.0, True, f"valid JSON array (len {len(obj)})")
 
     return grade
 

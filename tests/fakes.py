@@ -1,4 +1,4 @@
-"""A deterministic in-memory provider for tests (no Ollama required)."""
+"""A deterministic in-memory provider for tests (no backend required)."""
 
 from __future__ import annotations
 
@@ -6,26 +6,12 @@ from typing import Dict, List, Optional
 
 from localbench.models import MemoryMetrics, ModelInfo, SpeedMetrics
 from localbench.providers.base import GenerationResult, Provider, TokenCallback
+from localbench.quality import default_suite
 
-
-# Canned answers keyed by a distinctive substring of each task prompt.
-_ANSWERS = {
-    "17 multiplied by 23": "17 * 23 = 391\nThe final answer is 391",
-    "48 apples": "48 * 3/4 = 36 sold, 12 left, +15 = 27\n27",
-    "60 miles in 1.5 hours": "60 / 1.5 = 40\n40",
-    "2, 6, 12, 20, 30": "B",
-    "All roses are flowers": "C",
-    "capital city of Australia": "Canberra",
-    "symbol 'Fe'": "Iron",
-    '"name" and "age"': '{"name": "Alice", "age": 30}',
-    "support@example.com": "support@example.com",
-    "len('hello') + 2": "len('hello') is 5, plus 2 is 7\n7",
-    "sky appears blue": "Rayleigh scattering makes shorter blue wavelengths "
-    "scatter more, so the sky looks blue.",
-    "declining a meeting": "Thank you for the invitation. Unfortunately I have "
-    "a scheduling conflict and must decline.",
-    "strict grader": "SCORE: 5 looks correct and well-formed",  # judge prompt
-}
+# An "oracle": answer every task with its own reference. This keeps the
+# canned-answer test meaningful as the suite grows, and only works because
+# each task's reference is authored to satisfy its grader (see test_suite).
+_ORACLE: Dict[str, str] = {t.prompt: t.reference for t in default_suite(include_open=True)}
 
 
 class FakeProvider(Provider):
@@ -49,10 +35,11 @@ class FakeProvider(Provider):
         return list(self._models)
 
     def _answer_for(self, prompt: str) -> str:
-        for needle, ans in _ANSWERS.items():
-            if needle in prompt:
-                return ans
-        return "I don't know."
+        if prompt in _ORACLE:
+            return _ORACLE[prompt]
+        if "strict grader" in prompt:      # the LLM-judge prompt
+            return "SCORE: 5 correct and well-formed"
+        return "A short generated paragraph for the speed probe."
 
     def generate(self, model, prompt, *, max_tokens=256, temperature=0.0,
                  seed=None, on_token: TokenCallback = None, timeout=300.0):

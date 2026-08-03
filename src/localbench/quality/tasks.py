@@ -18,6 +18,7 @@ from .graders import (
     multiple_choice,
     regex_match,
     valid_json,
+    valid_json_array,
 )
 
 # Nudge small models toward parseable output without over-constraining them.
@@ -54,7 +55,28 @@ _TASKS: List[Task] = [
         "miles per hour?" + _MATH_SUFFIX,
         exact_number(40), max_tokens=200, reference="40 mph",
     ),
-    # -- reasoning (multiple choice) -----------------------------------
+    Task(
+        "math_percent", "math",
+        "What is 15% of 240?" + _MATH_SUFFIX,
+        exact_number(36), max_tokens=200, reference="36",
+    ),
+    Task(
+        "math_algebra", "math",
+        "If 3x + 7 = 22, what is the value of x?" + _MATH_SUFFIX,
+        exact_number(5), max_tokens=200, reference="x = 5",
+    ),
+    Task(
+        "math_sum", "math",
+        "What is the sum of all integers from 1 to 10 inclusive?" + _MATH_SUFFIX,
+        exact_number(55), max_tokens=200, reference="55",
+    ),
+    Task(
+        "math_scale", "math",
+        "A recipe needs 2.5 cups of flour per loaf. How many cups are needed "
+        "for 4 loaves?" + _MATH_SUFFIX,
+        exact_number(10), max_tokens=200, reference="10 cups",
+    ),
+    # -- reasoning (multiple choice + short answer) --------------------
     Task(
         "reason_seq", "reasoning",
         "Which number continues the sequence 2, 6, 12, 20, 30, ?\n"
@@ -69,6 +91,30 @@ _TASKS: List[Task] = [
         "D) No roses fade quickly" + _MC_SUFFIX,
         multiple_choice("C"), max_tokens=100, reference="C",
     ),
+    Task(
+        "reason_syllogism", "reasoning",
+        "If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops "
+        "necessarily Lazzies?\nA) Yes  B) No  C) Cannot be determined" + _MC_SUFFIX,
+        multiple_choice("A"), max_tokens=100, reference="A (yes)",
+    ),
+    Task(
+        "reason_odd", "reasoning",
+        "Which word does not belong with the others?\n"
+        "A) Dog  B) Cat  C) Car  D) Horse" + _MC_SUFFIX,
+        multiple_choice("C"), max_tokens=100, reference="C (Car)",
+    ),
+    Task(
+        "reason_order", "reasoning",
+        "Tom is taller than Sam. Sam is taller than Bob. Who is the shortest? "
+        "Answer with just the name.",
+        contains_any(["Bob"]), max_tokens=60, reference="Bob",
+    ),
+    Task(
+        "reason_time", "reasoning",
+        "A meeting starts at 2:45 PM and lasts 90 minutes. What time does it "
+        "end? Answer in H:MM format.",
+        contains_any(["4:15"]), max_tokens=100, reference="4:15 PM",
+    ),
     # -- closed-book factual -------------------------------------------
     Task(
         "fact_capital", "factual",
@@ -80,6 +126,27 @@ _TASKS: List[Task] = [
         "Which chemical element has the symbol 'Fe'? Answer with just the name.",
         contains_any(["Iron"]), max_tokens=60, reference="Iron",
     ),
+    Task(
+        "fact_planets", "factual",
+        "How many planets are officially recognised in our solar system by the "
+        "IAU? Answer with just the number.",
+        contains_any(["8", "eight"]), max_tokens=60, reference="8",
+    ),
+    Task(
+        "fact_water", "factual",
+        "What is the chemical formula for water? Answer with just the formula.",
+        contains_any(["H2O", "H₂O"]), max_tokens=60, reference="H2O",
+    ),
+    Task(
+        "fact_author", "factual",
+        "Who wrote the play 'Romeo and Juliet'? Answer with just the name.",
+        contains_any(["Shakespeare"]), max_tokens=60, reference="William Shakespeare",
+    ),
+    Task(
+        "fact_ocean", "factual",
+        "What is the largest ocean on Earth? Answer with just the name.",
+        contains_any(["Pacific"]), max_tokens=60, reference="Pacific Ocean",
+    ),
     # -- instruction following / structured output ----------------------
     Task(
         "format_json", "format",
@@ -89,6 +156,24 @@ _TASKS: List[Task] = [
         valid_json(["name", "age"]), max_tokens=120,
         reference='{"name": "Alice", "age": 30}',
     ),
+    Task(
+        "format_colors", "format",
+        'Output ONLY a JSON object with a single key "colors" whose value is a '
+        "list of the three primary colors.",
+        valid_json(["colors"]), max_tokens=120,
+        reference='{"colors": ["red", "yellow", "blue"]}',
+    ),
+    Task(
+        "format_array", "format",
+        "Output ONLY a JSON array containing the numbers 1, 2, and 3, in order.",
+        valid_json_array(3), max_tokens=80, reference="[1, 2, 3]",
+    ),
+    Task(
+        "format_upper", "format",
+        "Respond with only the word 'hello' written in all uppercase letters, "
+        "and nothing else.",
+        regex_match(r"HELLO", flags=0), max_tokens=40, reference="HELLO",
+    ),
     # -- extraction -----------------------------------------------------
     Task(
         "extract_email", "extraction",
@@ -97,12 +182,49 @@ _TASKS: List[Task] = [
         regex_match(r"support@example\.com"), max_tokens=60,
         reference="support@example.com",
     ),
+    Task(
+        "extract_year", "extraction",
+        "Extract the year from the following text and output only the year:\n"
+        "\"The company was founded in 1998 by two university students.\"",
+        exact_number(1998), max_tokens=60, reference="1998",
+    ),
+    Task(
+        "extract_name", "extraction",
+        "Extract the person's full name from the following text and output only "
+        "the name:\n\"The report was submitted by Dr. Maria Chen last Friday.\"",
+        contains_any(["Maria Chen"]), max_tokens=60, reference="Maria Chen",
+    ),
     # -- code understanding --------------------------------------------
     Task(
         "code_eval", "code",
         "What does this Python expression evaluate to? len('hello') + 2\n"
         "End with the final answer on its own line.",
         exact_number(7), max_tokens=150, reference="7",
+    ),
+    Task(
+        "code_pow", "code",
+        "What is the output of this Python code?\nprint(2 ** 5)\n"
+        "End with the answer on its own line.",
+        exact_number(32), max_tokens=150, reference="32",
+    ),
+    Task(
+        "code_len", "code",
+        "In Python, what does len([1, [2, 3], 4]) return?\n"
+        "End with the answer on its own line.",
+        exact_number(3), max_tokens=150, reference="3",
+    ),
+    Task(
+        "code_listcomp", "code",
+        "What does this Python expression evaluate to? [x * 2 for x in range(4)]\n"
+        "End with the answer on its own line.",
+        regex_match(r"\[\s*0\s*,\s*2\s*,\s*4\s*,\s*6\s*\]"), max_tokens=150,
+        reference="[0, 2, 4, 6]",
+    ),
+    Task(
+        "code_str", "code",
+        "In Python, what is the result of 'ab' * 3? Output only the resulting "
+        "string.",
+        contains_any(["ababab"]), max_tokens=60, reference="ababab",
     ),
     # -- open-ended (judge only) ---------------------------------------
     Task(
@@ -120,6 +242,20 @@ _TASKS: List[Task] = [
         grader=None, max_tokens=200,
         reference="A courteous, well-formed two-sentence email that declines "
         "and cites a scheduling conflict.",
+    ),
+    Task(
+        "open_hash", "open",
+        "Explain in two sentences what a hash function is.",
+        grader=None, max_tokens=200,
+        reference="A hash function maps input data of any size to a fixed-size "
+        "value; it is deterministic and hard to invert, which makes it useful "
+        "for lookups and integrity checks.",
+    ),
+    Task(
+        "open_haiku", "open",
+        "Write a haiku about autumn (three short lines).",
+        grader=None, max_tokens=120,
+        reference="A three-line poem evoking autumn imagery.",
     ),
 ]
 
