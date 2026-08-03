@@ -127,6 +127,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="context length to budget KV cache for (default: 4096)")
     fit.add_argument("--quant", default=None,
                      help="evaluate a specific quant (e.g. Q4_K_M) instead of the best")
+    fit.add_argument("--catalog", action="append", default=None, metavar="FILE",
+                     help="add models from a JSON catalog file (repeatable)")
     fit.add_argument("--ram", type=float, default=None, metavar="GB",
                      help="override detected system RAM (GB) for what-if planning")
     fit.add_argument("--vram", type=float, default=None, metavar="GB",
@@ -328,7 +330,9 @@ def cmd_diff(args, console: Console) -> int:
 
 
 def cmd_fit(args, console: Console) -> int:
-    from .catalog import QUANT_GB_PER_B, evaluate_catalog
+    from .catalog import (
+        CATALOG, CatalogError, QUANT_GB_PER_B, evaluate_catalog, load_catalog,
+    )
     from .hardware import GPUInfo, capture
     from .report import fit_table, hardware_table
 
@@ -339,6 +343,15 @@ def cmd_fit(args, console: Console) -> int:
     if args.context < 256:
         console.print("[red]error:[/red] --context must be >= 256")
         return 1
+
+    models = list(CATALOG)
+    if getattr(args, "catalog", None):
+        try:
+            for path in args.catalog:
+                models += load_catalog(path)
+        except CatalogError as exc:
+            console.print(f"[red]catalog error:[/red] {exc}")
+            return 1
 
     hw = capture()
     if args.ram is not None:
@@ -351,7 +364,8 @@ def cmd_fit(args, console: Console) -> int:
     budget, _label = hw.memory_budget()
     console.print(hardware_table(hw))
     console.print()
-    results = evaluate_catalog(budget, context=args.context, quant=args.quant)
+    results = evaluate_catalog(budget, context=args.context, quant=args.quant,
+                               catalog=models)
     console.print(fit_table(results, show_all=args.all))
 
     fits = [r for r in results if r.status in ("fits", "tight")]

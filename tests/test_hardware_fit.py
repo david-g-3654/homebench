@@ -1,12 +1,18 @@
+import json
+
+import pytest
+
 from homebench import catalog
 from homebench.catalog import (
     CATALOG,
     FIT,
     NO,
     TIGHT,
+    CatalogError,
     ModelSpec,
     best_fit,
     evaluate_catalog,
+    load_catalog,
     required_bytes,
     weight_bytes,
 )
@@ -96,11 +102,70 @@ def test_evaluate_catalog_shape():
 
 # ---- catalog integrity -----------------------------------------------------
 def test_catalog_integrity():
+    assert len(CATALOG) >= 40                      # broad coverage
     names = [m.name for m in CATALOG]
-    assert len(names) == len(set(names))          # unique names
+    assert len(names) == len(set(names))           # unique names
+    ollama_tags = [m.ollama for m in CATALOG]
+    assert len(ollama_tags) == len(set(ollama_tags))  # unique ollama tags
     for m in CATALOG:
         assert m.params_b > 0
-        assert m.ollama and m.hf                   # every model has get-it info
+        assert m.ollama and m.hf                    # every model has get-it info
+
+
+# ---- user catalog loading --------------------------------------------------
+def test_load_catalog(tmp_path):
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"models": [
+        {"name": "Custom 7B", "params_b": 7.6, "ollama": "custom:7b", "hf": "o/custom-7b"},
+        {"name": "Bare 3B", "params_b": 3},
+    ]}))
+    models = load_catalog(str(p))
+    assert [m.name for m in models] == ["Custom 7B", "Bare 3B"]
+    assert models[1].family == "custom" and models[1].ollama is None
+
+
+def test_load_catalog_bare_list(tmp_path):
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps([{"name": "X", "params_b": 1.0}]))
+    assert len(load_catalog(str(p))) == 1
+
+
+@pytest.mark.parametrize("payload", [
+    {"models": []},                                    # empty
+    [{"name": "no params"}],                           # missing params_b
+    [{"params_b": 7}],                                 # missing name
+    [{"name": "bad", "params_b": "seven"}],            # non-numeric
+    [{"name": "neg", "params_b": -3}],                 # non-positive
+])
+def test_load_catalog_errors(tmp_path, payload):
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps(payload))
+    with pytest.raises(CatalogError):
+        load_catalog(str(p))
+
+
+def test_load_catalog_bad_json(tmp_path):
+    p = tmp_path / "c.json"
+    p.write_text("{not json")
+    with pytest.raises(CatalogError):
+        load_catalog(str(p))
+
+
+def test_combined_catalog_evaluates(tmp_path):
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps([{"name": "Extra 7B", "params_b": 7.6}]))
+    combined = list(CATALOG) + load_catalog(str(p))
+    results = evaluate_catalog(budget=16 * GB, catalog=combined)
+    assert len(results) == len(CATALOG) + 1
+    assert any(r.model.name == "Extra 7B" for r in results)
+
+
+def test_shipped_example_catalog():
+    import os
+    path = os.path.join(os.path.dirname(__file__), "..", "examples", "models.example.json")
+    models = load_catalog(path)
+    assert len(models) == 2
+    assert models[0].name == "My Finetune 7B"
 
 
 # ---- render ----------------------------------------------------------------
