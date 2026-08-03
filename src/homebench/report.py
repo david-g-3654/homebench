@@ -159,6 +159,66 @@ def to_json(result: BenchmarkResult, indent: int = 2) -> str:
     return json.dumps(result.to_dict(), indent=indent)
 
 
+# ---- hardware / model-fit --------------------------------------------------
+def hardware_table(hw) -> Table:
+    """Render captured hardware as a key/value summary."""
+    budget, label = hw.memory_budget()
+    t = Table(title="This machine", header_style="bold cyan", show_header=False)
+    t.add_column("k", style="bold", justify="right")
+    t.add_column("v")
+    t.add_row("OS", f"{hw.os} {hw.os_version} ({hw.arch})")
+    t.add_row("CPU", f"{hw.cpu}  ·  {hw.cpu_cores} cores")
+    t.add_row("RAM", f"{fmt_bytes(hw.ram_total_bytes)} total  "
+                     f"· {fmt_bytes(hw.ram_available_bytes)} available")
+    if hw.gpu.kind == "nvidia":
+        t.add_row("GPU", f"{hw.gpu.name}  · {fmt_bytes(hw.gpu.vram_bytes)} VRAM")
+    elif hw.gpu.kind == "apple":
+        t.add_row("GPU", f"{hw.gpu.name} (unified memory)")
+    else:
+        t.add_row("GPU", "none detected (CPU inference)")
+    t.add_row("Model budget", f"[green]{fmt_bytes(budget)}[/green]  ({label})")
+    return t
+
+
+_FIT_MARK = {
+    "fits": "[green]✓ fits[/green]",
+    "tight": "[yellow]⚠ tight[/yellow]",
+    "no": "[red]✗ too big[/red]",
+}
+
+
+def fit_table(results, show_all: bool = False) -> Table:
+    """Render model-fit results (from catalog.evaluate_catalog)."""
+    t = Table(
+        title="Model fit for your hardware", header_style="bold cyan",
+        caption="Install: [b]ollama pull <tag>[/b]  ·  HuggingFace repos also "
+                "work in LM Studio & vLLM",
+        caption_justify="left",
+    )
+    t.add_column("Model", style="bold", no_wrap=True)
+    t.add_column("Params", justify="right")
+    t.add_column("Quant", justify="center")
+    t.add_column("~Needs", justify="right")
+    t.add_column("Fit", justify="left", no_wrap=True)
+    t.add_column("Ollama tag", overflow="fold")
+    t.add_column("HuggingFace repo", overflow="fold", style="dim")
+
+    for r in results:
+        if not show_all and r.status == "no":
+            continue
+        m = r.model
+        t.add_row(
+            m.name,
+            f"{m.params_b:g}B",
+            r.quant or "–",
+            fmt_bytes(r.required_bytes),
+            _FIT_MARK.get(r.status, r.status),
+            m.ollama or "–",
+            m.hf or "–",
+        )
+    return t
+
+
 # ---- throughput ------------------------------------------------------------
 def throughput_table(result) -> Table:
     """Render a ThroughputResult as a concurrency-sweep table."""

@@ -84,6 +84,7 @@ homebench diff                   # diff the two most recent runs
 homebench diff 3 1               # diff run #3 (base) against run #1 (newer)
 homebench throughput             # batch-throughput sweep (concurrency 1,2,4,8)
 homebench throughput --concurrency 1,8,16 --provider vllm
+homebench fit                    # which popular models fit YOUR hardware?
 ```
 
 Run `homebench --help` for the full flag list.
@@ -181,6 +182,20 @@ It fires N requests at each concurrency level (N defaults to 3×concurrency) and
 ```
 
 On a non-batching setup, aggregate throughput stays flat while latency climbs — which is itself a useful thing to see. Add `--json FILE` to export.
+
+## What can my machine run?
+
+Before benchmarking, `homebench fit` captures your hardware (RAM, CPU, GPU/VRAM, Apple unified memory) and checks a curated catalog of popular models — from Qwen2.5 0.5B up to Llama 3.3 70B — against your memory budget, showing which fit and at what quantization:
+
+```bash
+homebench fit                    # what fits, at the best quant
+homebench fit --all              # include models that don't fit
+homebench fit --context 8192     # budget a larger KV cache
+homebench fit --quant Q4_K_M     # evaluate a specific quant
+homebench fit --vram 24          # what-if: "if I had a 24 GB GPU…"
+```
+
+Each model comes with its **Ollama tag** (`ollama pull …`) and **HuggingFace repo** (which LM Studio and vLLM also pull from). Sizes are estimates (weights + KV cache + overhead), so treat "fits"/"tight" as guidance. Add `--json FILE` to export the hardware profile and results.
 
 ## Development
 
