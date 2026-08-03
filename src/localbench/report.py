@@ -157,3 +157,38 @@ def _category_set(result: BenchmarkResult) -> List[str]:
 
 def to_json(result: BenchmarkResult, indent: int = 2) -> str:
     return json.dumps(result.to_dict(), indent=indent)
+
+
+# ---- throughput ------------------------------------------------------------
+def throughput_table(result) -> Table:
+    """Render a ThroughputResult as a concurrency-sweep table."""
+    title = f"Batch throughput — {result.model} ({result.provider})"
+    table = Table(title=title, header_style="bold cyan")
+    table.add_column("Conc", justify="right")
+    table.add_column("Reqs", justify="right")
+    table.add_column("Agg tok/s", justify="right", style="green")
+    table.add_column("Speedup", justify="right")
+    table.add_column("Req tok/s", justify="right")
+    table.add_column("Mean lat", justify="right")
+    table.add_column("p95 lat", justify="right")
+    table.add_column("Errors", justify="right")
+
+    if result.error:
+        table.add_row("–", "–", "[red]error[/red]", "–", "–", "–", "–", "–")
+        return table
+
+    for p in result.points:
+        speedup = result.speedup(p)
+        speedup_txt = f"{speedup:.2f}×" if speedup is not None else "–"
+        errors_txt = f"[red]{p.errors}[/red]" if p.errors else "0"
+        table.add_row(
+            str(p.concurrency),
+            str(p.requests),
+            f"{p.aggregate_tps:.1f}",
+            speedup_txt,
+            f"{p.mean_req_tps:.1f}",
+            fmt_ttft(p.mean_latency_s),
+            fmt_ttft(p.p95_latency_s),
+            errors_txt,
+        )
+    return table

@@ -75,6 +75,8 @@ localbench tasks                  # show the quality suite (add --tasks to previ
 localbench history                # list past runs (saved automatically)
 localbench diff                   # diff the two most recent runs
 localbench diff 3 1               # diff run #3 (base) against run #1 (newer)
+localbench throughput             # batch-throughput sweep (concurrency 1,2,4,8)
+localbench throughput --concurrency 1,8,16 --provider vllm
 ```
 
 Run `localbench --help` for the full flag list.
@@ -150,6 +152,29 @@ localbench diff 3 1           # run #3 (base) -> run #1 (newer)
 
 `diff` compares models by name and shows per-model deltas in quality and throughput, plus which models were added or removed between runs — handy for "did that quantization / setting actually help?"
 
+## Batch throughput
+
+The main leaderboard measures **single-stream** tok/s. Servers that batch requests (vLLM, llama.cpp continuous batching, Ollama with `OLLAMA_NUM_PARALLEL>1`) can do far more total work under concurrency — `localbench throughput` measures that:
+
+```bash
+localbench throughput -m my-model --concurrency 1,2,4,8
+```
+
+It fires N requests at each concurrency level (N defaults to 3×concurrency) and reports **aggregate** tok/s (total output ÷ wall-clock), the speedup vs. concurrency 1, mean per-request rate, and latency (mean / p95):
+
+```
+             Batch throughput — my-model (vllm)
+┏━━━━━━┳━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
+┃ Conc ┃ Reqs ┃ Agg tok/s ┃ Speedup ┃ Req tok/s ┃ Mean lat ┃ p95 lat ┃ Errors ┃
+┡━━━━━━╇━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩
+│    1 │    4 │      95.0 │   1.00× │      95.0 │   1.35 s │  1.4 s  │      0 │
+│    4 │   12 │     320.0 │   3.37× │      82.0 │   1.56 s │  1.9 s  │      0 │
+│    8 │   24 │     540.0 │   5.68× │      70.0 │   1.83 s │  2.6 s  │      0 │
+└──────┴──────┴───────────┴─────────┴───────────┴──────────┴─────────┴────────┘
+```
+
+On a non-batching setup, aggregate throughput stays flat while latency climbs — which is itself a useful thing to see. Add `--json FILE` to export.
+
 ## Development
 
 ```bash
@@ -167,8 +192,8 @@ Contributions welcome — new providers, task packs, and metrics especially.
 ## Roadmap
 
 - PyPI release
-- Concurrency / batch-throughput measurement for server backends (vLLM)
 - HTML / shareable report export
+- Per-run environment capture (OS, RAM, GPU) for comparable results
 
 ## License
 
