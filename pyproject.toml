@@ -32,7 +32,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-httpx>=0.22"]
+yaml = ["pyyaml>=5.1"]
+dev = ["pytest>=7.0", "pytest-httpx>=0.22", "pyyaml>=5.1"]
 
 [project.urls]
 Homepage = "https://github.com/localbench/localbench"

@@ -64,11 +64,17 @@ localbench --provider openai --host http://localhost:5000   # any OpenAI-compati
 localbench --no-quality           # speed + memory only (fast)
 localbench --no-speed             # quality only
 localbench --judge qwen3:8b       # enable LLM-as-judge (adds open-ended tasks)
+localbench --tasks mypack.yaml    # use a custom task pack instead of the built-in suite
+localbench --add-tasks mypack.yaml  # add a pack on top of the built-in suite
+localbench --label "before tuning"  # tag this run for later diffing
 localbench --md results.md        # also export a Markdown report
 localbench --json results.json    # also export raw JSON
 
 localbench list                   # just list discovered models
-localbench tasks                  # show the quality suite
+localbench tasks                  # show the quality suite (add --tasks to preview a pack)
+localbench history                # list past runs (saved automatically)
+localbench diff                   # diff the two most recent runs
+localbench diff 3 1               # diff run #3 (base) against run #1 (newer)
 ```
 
 Run `localbench --help` for the full flag list.
@@ -106,6 +112,44 @@ The suite is small on purpose — enough tasks across categories to *separate* m
 
 The optional `--judge MODEL` flag turns on an LLM-as-judge (any local model) that scores open-ended tasks 1–5 against a reference answer. It's a signal, not an oracle.
 
+## Custom task packs
+
+Bring your own evals with a JSON or YAML pack — no Python required. `--tasks` replaces the built-in suite; `--add-tasks` appends to it. YAML needs the optional extra (`pip install "localbench[yaml]"`); JSON works out of the box.
+
+```yaml
+# mypack.yaml  —  localbench --tasks mypack.yaml
+name: my-pack
+tasks:
+  - id: capital_japan
+    category: factual
+    prompt: "What is the capital of Japan? Answer with just the city name."
+    grader: {type: contains_any, values: ["Tokyo"]}
+    reference: Tokyo
+  - id: add
+    category: math
+    prompt: "What is 12 + 30? End with the answer on its own line."
+    grader: {type: exact_number, value: 42}
+  - id: explain          # no grader -> open-ended, scored only with --judge
+    category: open
+    prompt: "Explain photosynthesis in one sentence."
+    reference: "Plants convert sunlight, water, and CO2 into glucose and oxygen."
+```
+
+Grader `type` values: `exact_number` (`value`, `tol`), `multiple_choice` (`value`), `contains_any` (`values`), `regex` (`pattern`, `ignorecase`), `valid_json` (`keys`), `valid_json_array` (`length`). Omit `grader` for a judge-only task. Runnable examples live in [`examples/`](examples/); preview any pack with `localbench tasks --tasks mypack.yaml`.
+
+## History & diffing
+
+Every run is saved automatically to `$LOCALBENCH_HOME/runs` (default `~/.localbench/runs`); disable with `--no-save`, and tag runs with `--label`.
+
+```bash
+localbench history            # table of past runs (newest first)
+localbench diff               # previous run -> latest
+localbench diff 3             # run #3 -> latest
+localbench diff 3 1           # run #3 (base) -> run #1 (newer)
+```
+
+`diff` compares models by name and shows per-model deltas in quality and throughput, plus which models were added or removed between runs — handy for "did that quantization / setting actually help?"
+
 ## Development
 
 ```bash
@@ -123,9 +167,8 @@ Contributions welcome — new providers, task packs, and metrics especially.
 ## Roadmap
 
 - PyPI release
-- Pluggable / user-supplied task packs
-- Historical runs & diffing
 - Concurrency / batch-throughput measurement for server backends (vLLM)
+- HTML / shareable report export
 
 ## License
 

@@ -1,0 +1,33 @@
+{
+  "name": "sample-pack",
+  "description": "A tiny example task pack. Run with: localbench --tasks examples/sample_pack.json",
+  "tasks": [
+    {
+      "id": "capital_japan",
+      "category": "factual",
+      "prompt": "What is the capital of Japan? Answer with just the city name.",
+      "grader": { "type": "contains_any", "values": ["Tokyo"] },
+      "reference": "Tokyo"
+    },
+    {
+      "id": "add_small",
+      "category": "math",
+      "prompt": "What is 12 + 30? End with the final answer on its own line.",
+      "grader": { "type": "exact_number", "value": 42 },
+      "reference": "42"
+    },
+    {
+      "id": "json_point",
+      "category": "format",
+      "prompt": "Output ONLY a JSON object with keys \"x\" and \"y\", both set to 0.",
+      "grader": { "type": "valid_json", "keys": ["x", "y"] },
+      "reference": "{\"x\": 0, \"y\": 0}"
+    },
+    {
+      "id": "explain_photosynthesis",
+      "category": "open",
+      "prompt": "Explain photosynthesis in one sentence.",
+      "reference": "Plants convert sunlight, water, and CO2 into glucose and oxygen."
+    }
+  ]
+}

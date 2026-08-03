@@ -15,7 +15,6 @@ from rich.table import Table
 from rich.text import Text
 
 from .models import BenchmarkResult, ModelInfo, ModelReport
-from .quality import default_suite
 from .report import (
     fmt_quality,
     fmt_tps,
@@ -29,6 +28,7 @@ from .runner import (
     EV_PHASE,
     EV_TASK_DONE,
     Runner,
+    resolve_suite,
 )
 
 
@@ -103,8 +103,10 @@ class PlainReporter:
 
 
 def run_plain(runner: Runner, models: List[ModelInfo], console: Console) -> BenchmarkResult:
-    include_open = runner.config.include_open and runner.judge is not None
-    total_tasks = len(default_suite(include_open=include_open)) if runner.config.run_quality else 0
+    total_tasks = (
+        len(resolve_suite(runner.config, runner.judge is not None))
+        if runner.config.run_quality else 0
+    )
     reporter = PlainReporter(models, total_tasks)
 
     console.print(

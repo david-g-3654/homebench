@@ -15,7 +15,6 @@ from textual.widgets import DataTable, Footer, Header, Static
 from textual import work
 
 from ..models import BenchmarkResult, ModelInfo, ModelReport
-from ..quality import default_suite
 from ..report import (
     _memory_display,
     fmt_quality,
@@ -30,6 +29,7 @@ from ..runner import (
     EV_RUN_DONE,
     EV_TASK_DONE,
     Runner,
+    resolve_suite,
 )
 
 
@@ -54,9 +54,8 @@ class LocalbenchApp(App):
         self.runner = runner
         self.models = models
         self.order = [m.name for m in models]
-        include_open = runner.config.include_open and runner.judge is not None
         self.total_tasks = (
-            len(default_suite(include_open=include_open))
+            len(resolve_suite(runner.config, runner.judge is not None))
             if runner.config.run_quality else 0
         )
         self.status: Dict[str, str] = {n: "queued" for n in self.order}
