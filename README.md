@@ -196,7 +196,20 @@ homebench fit --vram 24          # what-if: "if I had a 24 GB GPU…"
 homebench fit --catalog my.json  # add your own models to the catalog
 ```
 
-Each model comes with its **Ollama tag** (`ollama pull …`) and **HuggingFace repo** (which LM Studio and vLLM also pull from). Add your own with a JSON catalog (see [`examples/models.example.json`](examples/models.example.json)): a list of `{name, params_b, family?, ollama?, hf?}`. Sizes are estimates (weights + KV cache + overhead), so treat "fits"/"tight" as guidance. Add `--json FILE` to export the hardware profile and results.
+### Live list from HuggingFace
+
+Instead of the built-in catalog, pull the **currently most popular models straight from the HuggingFace Hub** — their parameter counts (from safetensors metadata) are sized against your hardware in real time:
+
+```bash
+homebench fit --online              # top 50 text-generation models by downloads
+homebench fit --online --top 100    # cast a wider net
+homebench fit --online --sort trending   # or: likes
+homebench fit --online --refresh    # bypass the 1-day cache
+```
+
+Results are cached under `$HOMEBENCH_HOME` (`~/.homebench`), so repeat runs are fast and work offline; if the Hub is unreachable, `homebench` falls back to the cache (or the built-in catalog).
+
+The built-in catalog also ships each model's **Ollama tag** (`ollama pull …`) and **HuggingFace repo** (which LM Studio and vLLM pull from). Add your own with a JSON catalog (see [`examples/models.example.json`](examples/models.example.json)): a list of `{name, params_b, family?, ollama?, hf?}`. Sizes are estimates (weights + KV cache + overhead), so treat "fits"/"tight" as guidance. Add `--json FILE` to export the hardware profile and results.
 
 ## Development
 
