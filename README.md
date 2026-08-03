@@ -2,17 +2,18 @@
 
 **Benchmark the local LLMs you already have — speed, memory, *and* quality — as a live terminal leaderboard.**
 
-![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![PyPI](https://img.shields.io/pypi/v/homebench)](https://pypi.org/project/homebench/)
+![Python](https://img.shields.io/pypi/pyversions/homebench)
+![License](https://img.shields.io/pypi/l/homebench)
 
 `localbench` is a single-command TUI that discovers the models installed in your local runner (**Ollama**, **LM Studio**, **llama.cpp**, **vLLM**, or any **OpenAI-compatible** server), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
 
 ```bash
-pipx install git+https://github.com/david-g-3654/homebench
+pip install homebench
 localbench
 ```
 
-That's it. No config, no API keys, no cloud. _(Once released, `pip install homebench` — the command stays `localbench`; see [Install](#install).)_
+That's it. No config, no API keys, no cloud. _(The PyPI package is `homebench`; the command and import stay `localbench`.)_
 
 ---
 
@@ -36,20 +37,21 @@ There are great tools for *one* half of this problem, but nothing local-first th
 
 ## Install
 
-Once published to PyPI (the distribution is named **`homebench`**; the command
-and import stay `localbench`):
+The distribution is named **`homebench`**; the installed command and Python import stay `localbench`.
 
 ```bash
 pip install homebench        # then run:  localbench
 ```
 
-Until then, install from source:
+Prefer an isolated install? Use [pipx](https://pipx.pypa.io):
 
 ```bash
-# isolated, recommended
-pipx install git+https://github.com/david-g-3654/homebench
+pipx install homebench
+```
 
-# or clone and install
+Or from source:
+
+```bash
 git clone https://github.com/david-g-3654/homebench
 cd homebench
 pip install .
