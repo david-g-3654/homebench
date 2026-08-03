@@ -31,9 +31,11 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--limit", type=int, default=None,
                         help="benchmark at most N models")
         sp.add_argument("--provider", default=None,
-                        help="provider name (default: auto-detect, e.g. ollama)")
+                        help="ollama|lmstudio|llamacpp|vllm|openai "
+                             "(default: auto-detect)")
         sp.add_argument("--host", default=None,
-                        help="provider host URL (default: env or http://localhost:11434)")
+                        help="provider host URL (default: the provider's env var "
+                             "or its standard localhost port)")
         sp.add_argument("--max-tokens", type=int, default=256,
                         help="max tokens per quality task (default: 256)")
         sp.add_argument("--speed-tokens", type=int, default=200,

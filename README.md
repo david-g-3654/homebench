@@ -2,7 +2,7 @@
 
 **Benchmark the local LLMs you already have — speed, memory, *and* quality — as a live terminal leaderboard.**
 
-`localbench` is a single-command TUI that discovers the models installed in your local runner (**Ollama** and **LM Studio**), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
+`localbench` is a single-command TUI that discovers the models installed in your local runner (**Ollama**, **LM Studio**, **llama.cpp**, **vLLM**, or any **OpenAI-compatible** server), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
 
 ```
 pip install localbench
@@ -39,6 +39,9 @@ localbench --no-tui               # plain live renderer (great for piping / CI)
 localbench -m llama3.2,qwen3:8b   # only these models
 localbench --limit 3              # first 3 discovered models
 localbench --provider lmstudio    # use LM Studio instead of auto-detect
+localbench --provider llamacpp    # llama.cpp server (llama-server)
+localbench --provider vllm        # vLLM
+localbench --provider openai --host http://localhost:5000   # any OpenAI-compatible server
 localbench --no-quality           # speed + memory only (fast)
 localbench --no-speed             # quality only
 localbench --judge qwen3:8b       # enable LLM-as-judge (adds open-ended tasks)
@@ -68,9 +71,16 @@ Run `localbench --help` for the full flag list.
 
 - Python 3.9+
 - A local model runner — at least one of:
-  - **Ollama**: `ollama serve` running with a model pulled. Non-default host via `--host` or `OLLAMA_HOST`.
-  - **LM Studio**: the local server enabled (default `http://localhost:1234`), with a model loaded. Non-default host via `--host` or `LMSTUDIO_HOST`.
-- Auto-detection tries Ollama first, then LM Studio. Force one with `--provider ollama|lmstudio`.
+
+  | Provider | `--provider` | Default host | Host env var | Notes |
+  | --- | --- | --- | --- | --- |
+  | Ollama | `ollama` | `http://localhost:11434` | `OLLAMA_HOST` | Native API; reports model memory via `/api/ps`. |
+  | LM Studio | `lmstudio` | `http://localhost:1234` | `LMSTUDIO_HOST` | Enrich via native `/api/v0` (quant/arch/size). |
+  | llama.cpp | `llamacpp` | `http://localhost:8080` | `LLAMACPP_HOST` | `llama-server`, OpenAI-compatible. |
+  | vLLM | `vllm` | `http://localhost:8000` | `VLLM_HOST` | Set `VLLM_API_KEY` if started with `--api-key`. |
+  | OpenAI-compatible | `openai` | — | `OPENAI_BASE_URL` | Any `/v1` server (Jan, LocalAI, TGI, …); pass `--host`. |
+
+- Auto-detection tries Ollama → LM Studio → llama.cpp → vLLM (the generic `openai` provider is explicit-only). Force one with `--provider`. Override host with `--host` or the env var above.
 
 ## How quality grading works
 
@@ -80,9 +90,9 @@ The optional `--judge MODEL` flag turns on an LLM-as-judge (any local model) tha
 
 ## Roadmap
 
-- More providers (llama.cpp server, vLLM, OpenAI-compatible endpoints)
 - Pluggable / user-supplied task packs
 - Historical runs & diffing
+- Concurrency / batch-throughput measurement for server backends (vLLM)
 
 ## License
 

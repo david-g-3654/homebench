@@ -1,5 +1,5 @@
 from localbench.providers import available_providers, get_provider
-from localbench.providers.lmstudio import LMStudioProvider, _normalize_host
+from localbench.providers.lmstudio import LMStudioProvider
 
 
 def test_lmstudio_registered():
@@ -7,14 +7,10 @@ def test_lmstudio_registered():
     assert isinstance(get_provider("lmstudio"), LMStudioProvider)
 
 
-def test_lmstudio_normalize_host():
-    assert _normalize_host("localhost:1234") == "http://localhost:1234"
-    assert _normalize_host("") == "http://localhost:1234"
-    assert _normalize_host("http://x:9/") == "http://x:9"
-
-
-def test_lmstudio_process_hint():
-    assert LMStudioProvider().process_hint == "LM Studio"
+def test_lmstudio_defaults():
+    p = LMStudioProvider()
+    assert p.host == "http://localhost:1234"
+    assert p.process_hint == "LM Studio"
 
 
 def test_lmstudio_unavailable_is_graceful():
