@@ -2,14 +2,17 @@
 
 **Benchmark the local LLMs you already have — speed, memory, *and* quality — as a live terminal leaderboard.**
 
-`localbench` is a single-command TUI that discovers the models installed in your local runner (**Ollama** and **LM Studio**), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-```
-pip install localbench
+`localbench` is a single-command TUI that discovers the models installed in your local runner (**Ollama**, **LM Studio**, **llama.cpp**, **vLLM**, or any **OpenAI-compatible** server), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
+
+```bash
+pipx install git+https://github.com/david-g-3654/localbench
 localbench
 ```
 
-That's it. No config, no API keys, no cloud.
+That's it. No config, no API keys, no cloud. _(PyPI release — `pip install localbench` — is planned; see [Install](#install).)_
 
 ---
 
@@ -26,10 +29,26 @@ There are great tools for *one* half of this problem, but nothing local-first th
 
 | Metric | How |
 | --- | --- |
-| **tok/s** | Output tokens ÷ generation time, reported by the runner (excludes prompt processing and model load). |
-| **TTFT** | Wall-clock time to the first streamed token, minus model-load time. |
-| **Memory** | Resident model size from the runner (`/api/ps`), plus a best-effort peak-RSS sample. |
+| **tok/s** | Output tokens ÷ generation time. Ollama reports server-side eval timing; OpenAI-compatible backends are timed client-side from the token stream. Excludes prompt processing and model load. |
+| **TTFT** | Wall-clock time to the first streamed token (minus model-load time where the runner reports it). |
+| **Memory** | Resident model size when the runner exposes it (Ollama `/api/ps`, LM Studio `/api/v0`), plus a best-effort peak-RSS sample of the backend's processes. |
 | **Quality** | 31 deterministically-graded tasks across math, reasoning, factual recall, instruction-following/structured-output, extraction, and code understanding. Optional **LLM-as-judge** adds open-ended tasks (summaries, email, haiku, explanations). |
+
+## Install
+
+Until a PyPI release lands, install from source:
+
+```bash
+# isolated, recommended
+pipx install git+https://github.com/david-g-3654/localbench
+
+# or clone and install
+git clone https://github.com/david-g-3654/localbench
+cd localbench
+pip install .
+```
+
+Requires **Python 3.9+**.
 
 ## Usage
 
@@ -39,6 +58,9 @@ localbench --no-tui               # plain live renderer (great for piping / CI)
 localbench -m llama3.2,qwen3:8b   # only these models
 localbench --limit 3              # first 3 discovered models
 localbench --provider lmstudio    # use LM Studio instead of auto-detect
+localbench --provider llamacpp    # llama.cpp server (llama-server)
+localbench --provider vllm        # vLLM
+localbench --provider openai --host http://localhost:5000   # any OpenAI-compatible server
 localbench --no-quality           # speed + memory only (fast)
 localbench --no-speed             # quality only
 localbench --judge qwen3:8b       # enable LLM-as-judge (adds open-ended tasks)
@@ -54,23 +76,29 @@ Run `localbench --help` for the full flag list.
 ### Example output
 
 ```
-                          Final leaderboard
-┏━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━┓
-┃ # ┃ Model        ┃ Params ┃ Quality ┃ Pass ┃ tok/s ┃  TTFT ┃ Memory ┃
-┡━━━╇━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━┩
-│ 1 │ qwen3:8b     │   8.2B │    90%  │ 9/10 │  52.1 │ 210ms │ 5.2 GB │
-│ 2 │ llama3.2     │   3.2B │    80%  │ 8/10 │  98.4 │  90ms │ 2.4 GB │
-│ 3 │ gemma3:4b    │   4.3B │    70%  │ 7/10 │  74.9 │ 130ms │ 3.3 GB │
-└───┴──────────────┴────────┴─────────┴──────┴───────┴───────┴────────┘
+                             Final leaderboard
+┏━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━┓
+┃ # ┃ Model        ┃ Params ┃ Quality ┃  Pass ┃ tok/s ┃  TTFT ┃ Memory ┃
+┡━━━╇━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━┩
+│ 1 │ qwen3:8b     │   8.2B │    87%  │ 27/31 │  22.4 │ 210ms │ 5.2 GB │
+│ 2 │ llama3.2     │   3.2B │    77%  │ 24/31 │  23.1 │ 150ms │ 2.4 GB │
+│ 3 │ gemma3:4b    │   4.3B │    71%  │ 22/31 │  15.3 │ 360ms │ 3.5 GB │
+└───┴──────────────┴────────┴─────────┴───────┴───────┴───────┴────────┘
 ```
 
-## Requirements
+## Providers
 
-- Python 3.9+
-- A local model runner — at least one of:
-  - **Ollama**: `ollama serve` running with a model pulled. Non-default host via `--host` or `OLLAMA_HOST`.
-  - **LM Studio**: the local server enabled (default `http://localhost:1234`), with a model loaded. Non-default host via `--host` or `LMSTUDIO_HOST`.
-- Auto-detection tries Ollama first, then LM Studio. Force one with `--provider ollama|lmstudio`.
+At least one local model runner must be reachable:
+
+| Provider | `--provider` | Default host | Host env var | Notes |
+| --- | --- | --- | --- | --- |
+| Ollama | `ollama` | `http://localhost:11434` | `OLLAMA_HOST` | Native API; reports model memory via `/api/ps`. |
+| LM Studio | `lmstudio` | `http://localhost:1234` | `LMSTUDIO_HOST` | Enriches metadata + memory via native `/api/v0`. |
+| llama.cpp | `llamacpp` | `http://localhost:8080` | `LLAMACPP_HOST` | `llama-server`, OpenAI-compatible. |
+| vLLM | `vllm` | `http://localhost:8000` | `VLLM_HOST` | Set `VLLM_API_KEY` if started with `--api-key`. |
+| OpenAI-compatible | `openai` | — | `OPENAI_BASE_URL` | Any `/v1` server (Jan, LocalAI, TGI, …); pass `--host`. |
+
+Auto-detection tries Ollama → LM Studio → llama.cpp → vLLM (the generic `openai` provider is explicit-only). Force one with `--provider`. Override host with `--host` or the env var above.
 
 ## How quality grading works
 
@@ -78,11 +106,26 @@ The suite is small on purpose — enough tasks across categories to *separate* m
 
 The optional `--judge MODEL` flag turns on an LLM-as-judge (any local model) that scores open-ended tasks 1–5 against a reference answer. It's a signal, not an oracle.
 
+## Development
+
+```bash
+git clone https://github.com/david-g-3654/localbench
+cd localbench
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+pytest -q
+```
+
+The codebase is small and layered: `providers/` (pluggable backends), `quality/` (tasks, graders, judge), `metrics/` (memory sampling), `runner.py` (orchestration), `report.py` (export + tables), and `tui/` + `plainui.py` (rendering). Adding a provider means subclassing `Provider` (or `OpenAICompatibleProvider`) and registering it; adding a task means appending to the suite in `quality/tasks.py` with a reference that satisfies its grader (enforced by the tests).
+
+Contributions welcome — new providers, task packs, and metrics especially.
+
 ## Roadmap
 
-- More providers (llama.cpp server, vLLM, OpenAI-compatible endpoints)
+- PyPI release
 - Pluggable / user-supplied task packs
 - Historical runs & diffing
+- Concurrency / batch-throughput measurement for server backends (vLLM)
 
 ## License
 

@@ -5,15 +5,30 @@ from __future__ import annotations
 from typing import Dict, List, Type
 
 from .base import GenerationResult, Provider, ProviderError
+from .llamacpp import LlamaCppProvider
 from .lmstudio import LMStudioProvider
 from .ollama import OllamaProvider
+from .openai_compat import OpenAICompatibleProvider
+from .vllm import VLLMProvider
 
-# Registry of known providers, keyed by their short name.
-# Order matters for auto-detection (first reachable one wins).
+# All providers selectable via --provider / get_provider().
 _PROVIDERS: Dict[str, Type[Provider]] = {
     OllamaProvider.name: OllamaProvider,
     LMStudioProvider.name: LMStudioProvider,
+    LlamaCppProvider.name: LlamaCppProvider,
+    VLLMProvider.name: VLLMProvider,
+    OpenAICompatibleProvider.name: OpenAICompatibleProvider,
 }
+
+# Order tried during auto-detection (first reachable one wins). The generic
+# "openai" provider is intentionally excluded — it has no canonical local
+# port and is meant to be selected explicitly with --provider openai.
+_AUTO_DETECT: List[str] = [
+    OllamaProvider.name,
+    LMStudioProvider.name,
+    LlamaCppProvider.name,
+    VLLMProvider.name,
+]
 
 
 def available_providers() -> List[str]:
@@ -31,17 +46,18 @@ def get_provider(name: str, **kwargs) -> Provider:
 
 
 def detect_provider(**kwargs) -> Provider:
-    """Return the first provider that is reachable, or raise."""
+    """Return the first auto-detectable provider that is reachable, or raise."""
     tried = []
-    for name, cls in _PROVIDERS.items():
-        provider = cls(**kwargs)
+    for name in _AUTO_DETECT:
+        provider = _PROVIDERS[name](**kwargs)
         if provider.is_available():
             return provider
         tried.append(name)
     raise ProviderError(
         "No local model provider is reachable. Tried: "
         + ", ".join(tried)
-        + ". Is Ollama running? (try `ollama serve`)"
+        + ". Is one running? e.g. `ollama serve`, LM Studio's server, "
+        "`llama-server`, or `vllm serve`."
     )
 
 
@@ -51,6 +67,9 @@ __all__ = [
     "GenerationResult",
     "OllamaProvider",
     "LMStudioProvider",
+    "LlamaCppProvider",
+    "VLLMProvider",
+    "OpenAICompatibleProvider",
     "available_providers",
     "get_provider",
     "detect_provider",
