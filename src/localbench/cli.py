@@ -1,0 +1,253 @@
+"""Command-line entry point for localbench."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from typing import List, Optional
+
+from rich.console import Console
+
+from . import __version__
+from .models import ModelInfo
+from .providers import ProviderError, detect_provider, get_provider
+from .quality import LLMJudge
+from .runner import RunConfig, Runner
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="localbench",
+        description="Benchmark the local LLMs you already have — speed, memory, "
+        "and quality — as a live terminal leaderboard.",
+    )
+    p.add_argument("--version", action="version", version=f"localbench {__version__}")
+    sub = p.add_subparsers(dest="command")
+
+    # ---- shared run options (also used when no subcommand is given) ----
+    def add_run_options(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument("-m", "--models", default=None,
+                        help="comma-separated model names (default: all discovered)")
+        sp.add_argument("--limit", type=int, default=None,
+                        help="benchmark at most N models")
+        sp.add_argument("--provider", default=None,
+                        help="provider name (default: auto-detect, e.g. ollama)")
+        sp.add_argument("--host", default=None,
+                        help="provider host URL (default: env or http://localhost:11434)")
+        sp.add_argument("--max-tokens", type=int, default=256,
+                        help="max tokens per quality task (default: 256)")
+        sp.add_argument("--speed-tokens", type=int, default=200,
+                        help="tokens to generate for the speed probe (default: 200)")
+        sp.add_argument("--repeat", type=int, default=1,
+                        help="speed-probe repetitions, best kept (default: 1)")
+        sp.add_argument("--timeout", type=float, default=300.0,
+                        help="per-request timeout in seconds (default: 300)")
+        sp.add_argument("--seed", type=int, default=42,
+                        help="sampling seed for reproducibility (default: 42)")
+        sp.add_argument("--no-quality", action="store_true",
+                        help="skip the quality suite (speed/memory only)")
+        sp.add_argument("--no-speed", action="store_true",
+                        help="skip the speed probe (quality only)")
+        sp.add_argument("--no-warmup", action="store_true",
+                        help="don't pre-load models before timing")
+        sp.add_argument("--no-unload", action="store_true",
+                        help="keep models loaded between runs")
+        sp.add_argument("--no-rss", action="store_true",
+                        help="disable psutil RSS sampling")
+        sp.add_argument("--judge", default=None, metavar="MODEL",
+                        help="enable LLM-as-judge using MODEL (adds open-ended tasks)")
+        sp.add_argument("--no-tui", action="store_true",
+                        help="use the plain renderer instead of the full-screen TUI")
+        sp.add_argument("--tui", action="store_true",
+                        help="force the full-screen TUI even when piped")
+        sp.add_argument("--md", "--out", dest="md", default=None, metavar="FILE",
+                        help="write a Markdown report to FILE")
+        sp.add_argument("--json", dest="json_out", default=None, metavar="FILE",
+                        help="write raw JSON results to FILE")
+
+    run_p = sub.add_parser("run", help="run the benchmark (default)")
+    add_run_options(run_p)
+
+    list_p = sub.add_parser("list", help="list discovered models and exit")
+    list_p.add_argument("--provider", default=None)
+    list_p.add_argument("--host", default=None)
+
+    sub.add_parser("tasks", help="list the quality tasks and exit")
+
+    # allow bare `localbench` (no subcommand) to accept run options too
+    add_run_options(p)
+    return p
+
+
+# ---------------------------------------------------------------------------
+def _resolve_provider(args, console: Console):
+    kwargs = {}
+    if getattr(args, "host", None):
+        kwargs["host"] = args.host
+    if getattr(args, "provider", None):
+        provider = get_provider(args.provider, **kwargs)
+        if not provider.is_available():
+            raise ProviderError(
+                f"Provider {args.provider!r} is not reachable. Is it running?"
+            )
+        return provider
+    return detect_provider(**kwargs)
+
+
+def _select_models(provider, args, console: Console) -> List[ModelInfo]:
+    available = provider.list_models()
+    if not available:
+        raise ProviderError(
+            f"No models found for provider {provider.name!r}. "
+            "Pull one first, e.g. `ollama pull llama3.2`."
+        )
+    if getattr(args, "models", None):
+        wanted = [m.strip() for m in args.models.split(",") if m.strip()]
+        by_name = {m.name: m for m in available}
+        chosen: List[ModelInfo] = []
+        for w in wanted:
+            if w in by_name:
+                chosen.append(by_name[w])
+                continue
+            matches = [m for m in available if m.name.startswith(w)]
+            if matches:
+                chosen.append(matches[0])
+            else:
+                console.print(f"[yellow]warning:[/yellow] no model matching {w!r}")
+        selected = chosen or available
+    else:
+        selected = available
+    if getattr(args, "limit", None):
+        selected = selected[: args.limit]
+    return selected
+
+
+def _build_runner(provider, args) -> Runner:
+    judge = None
+    include_open = False
+    if getattr(args, "judge", None):
+        judge = LLMJudge(provider, args.judge)
+        include_open = True
+    config = RunConfig(
+        max_tokens=args.max_tokens,
+        speed_max_tokens=args.speed_tokens,
+        repeat=max(1, args.repeat),
+        timeout=args.timeout,
+        seed=args.seed,
+        warmup=not args.no_warmup,
+        unload_between=not args.no_unload,
+        sample_rss=not args.no_rss,
+        include_open=include_open,
+        judge_model=args.judge,
+        run_quality=not args.no_quality,
+        run_speed=not args.no_speed,
+    )
+    return Runner(provider, config, judge=judge)
+
+
+def _export(result, args, console: Console) -> None:
+    from .report import to_json, to_markdown
+
+    if getattr(args, "md", None):
+        with open(args.md, "w") as f:
+            f.write(to_markdown(result))
+        console.print(f"[green]✓[/green] wrote Markdown report to [bold]{args.md}[/bold]")
+    if getattr(args, "json_out", None):
+        with open(args.json_out, "w") as f:
+            f.write(to_json(result))
+        console.print(f"[green]✓[/green] wrote JSON results to [bold]{args.json_out}[/bold]")
+
+
+# ---------------------------------------------------------------------------
+def cmd_list(args, console: Console) -> int:
+    try:
+        provider = _resolve_provider(args, console)
+        models = provider.list_models()
+    except ProviderError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+    from rich.table import Table
+
+    t = Table(title=f"Discovered models ({provider.name})", header_style="bold cyan")
+    t.add_column("Model", style="bold")
+    t.add_column("Params", justify="right")
+    t.add_column("Quant")
+    t.add_column("Family")
+    t.add_column("Disk size", justify="right")
+    from .report import fmt_bytes
+
+    for m in models:
+        t.add_row(m.name, m.parameter_size or "–", m.quantization or "–",
+                  m.family or "–", fmt_bytes(m.size_bytes))
+    console.print(t)
+    return 0
+
+
+def cmd_tasks(args, console: Console) -> int:
+    from rich.table import Table
+
+    from .quality import default_suite
+
+    t = Table(title="Quality suite", header_style="bold cyan")
+    t.add_column("ID", style="bold")
+    t.add_column("Category")
+    t.add_column("Grading")
+    for task in default_suite(include_open=True):
+        grading = "deterministic" if task.grader is not None else "LLM judge"
+        t.add_row(task.id, task.category, grading)
+    console.print(t)
+    return 0
+
+
+def cmd_run(args, console: Console) -> int:
+    try:
+        provider = _resolve_provider(args, console)
+        models = _select_models(provider, args, console)
+    except ProviderError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+
+    runner = _build_runner(provider, args)
+
+    use_tui = _should_use_tui(args, console)
+    if use_tui:
+        from .tui.app import run_tui
+
+        result = run_tui(runner, models)
+    else:
+        from .plainui import run_plain
+
+        result = run_plain(runner, models, console)
+
+    if result is None:
+        return 1
+    _export(result, args, console)
+    return 0
+
+
+def _should_use_tui(args, console: Console) -> bool:
+    if getattr(args, "tui", False):
+        return True
+    if getattr(args, "no_tui", False):
+        return False
+    # Auto: only when we have a real interactive terminal.
+    return console.is_terminal and sys.stdin.isatty()
+
+
+# ---------------------------------------------------------------------------
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    console = Console()
+
+    command = getattr(args, "command", None)
+    if command == "list":
+        return cmd_list(args, console)
+    if command == "tasks":
+        return cmd_tasks(args, console)
+    # default (None) and explicit "run" both run the benchmark
+    return cmd_run(args, console)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

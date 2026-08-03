@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# localbench output
+localbench-report.md
+results.md
+results.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
