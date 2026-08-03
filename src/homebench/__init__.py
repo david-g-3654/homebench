@@ -4,4 +4,4 @@ Speed (tokens/sec, time-to-first-token), memory footprint, and a small quality
 suite — rendered as a live comparison leaderboard in your terminal.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

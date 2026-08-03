@@ -118,10 +118,25 @@ def build_parser() -> argparse.ArgumentParser:
     tp.add_argument("--no-warmup", action="store_true")
     tp.add_argument("--json", dest="json_out", default=None, metavar="FILE",
                     help="write raw throughput results to FILE")
+
+    fit = sub.add_parser(
+        "fit", help="capture your hardware and show which popular models fit")
+    fit.add_argument("--all", action="store_true",
+                     help="include models that don't fit")
+    fit.add_argument("--context", type=int, default=4096,
+                     help="context length to budget KV cache for (default: 4096)")
+    fit.add_argument("--quant", default=None,
+                     help="evaluate a specific quant (e.g. Q4_K_M) instead of the best")
+    fit.add_argument("--ram", type=float, default=None, metavar="GB",
+                     help="override detected system RAM (GB) for what-if planning")
+    fit.add_argument("--vram", type=float, default=None, metavar="GB",
+                     help="override/assume GPU VRAM (GB) for what-if planning")
+    fit.add_argument("--json", dest="json_out", default=None, metavar="FILE",
+                     help="write hardware + fit results to FILE")
     return p
 
 
-_COMMANDS = {"run", "list", "tasks", "history", "diff", "throughput"}
+_COMMANDS = {"run", "list", "tasks", "history", "diff", "throughput", "fit"}
 
 
 def _inject_default_command(argv: List[str]) -> List[str]:
@@ -312,6 +327,62 @@ def cmd_diff(args, console: Console) -> int:
     return 0
 
 
+def cmd_fit(args, console: Console) -> int:
+    from .catalog import QUANT_GB_PER_B, evaluate_catalog
+    from .hardware import GPUInfo, capture
+    from .report import fit_table, hardware_table
+
+    if args.quant and args.quant not in QUANT_GB_PER_B:
+        console.print(f"[red]error:[/red] unknown quant {args.quant!r}. "
+                      f"Choices: {', '.join(QUANT_GB_PER_B)}")
+        return 1
+    if args.context < 256:
+        console.print("[red]error:[/red] --context must be >= 256")
+        return 1
+
+    hw = capture()
+    if args.ram is not None:
+        hw.ram_total_bytes = int(args.ram * 1_000_000_000)
+        hw.ram_available_bytes = min(hw.ram_available_bytes, hw.ram_total_bytes)
+    if args.vram is not None:
+        hw.gpu = GPUInfo(name="(assumed)", vram_bytes=int(args.vram * 1_000_000_000),
+                         kind="nvidia")
+
+    budget, _label = hw.memory_budget()
+    console.print(hardware_table(hw))
+    console.print()
+    results = evaluate_catalog(budget, context=args.context, quant=args.quant)
+    console.print(fit_table(results, show_all=args.all))
+
+    fits = [r for r in results if r.status in ("fits", "tight")]
+    console.print()
+    if fits:
+        biggest = max(fits, key=lambda r: r.model.params_b)
+        console.print(
+            f"[green]{len(fits)}[/green]/{len(results)} catalogued models fit — "
+            f"largest: [bold]{biggest.model.name}[/bold] at {biggest.quant}."
+        )
+    else:
+        console.print("[yellow]No catalogued models fit the detected budget.[/yellow]")
+    console.print("[dim]Estimates = weights + KV cache + overhead; real usage "
+                  "varies with context and backend. HuggingFace repos also work "
+                  "with LM Studio and vLLM.[/dim]")
+    if not args.all and any(r.status == "no" for r in results):
+        console.print("[dim]Pass --all to include models that don't fit.[/dim]")
+
+    if getattr(args, "json_out", None):
+        import json
+
+        with open(args.json_out, "w") as f:
+            json.dump({"hardware": hw.to_dict(),
+                       "budget_bytes": budget,
+                       "context": args.context,
+                       "results": [r.to_dict() for r in results]}, f, indent=2)
+        console.print(f"[green]✓[/green] wrote hardware + fit to "
+                      f"[bold]{args.json_out}[/bold]")
+    return 0
+
+
 def cmd_throughput(args, console: Console) -> int:
     from .metrics import measure_throughput, parse_levels
     from .report import throughput_table
@@ -427,6 +498,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return cmd_diff(args, console)
     if command == "throughput":
         return cmd_throughput(args, console)
+    if command == "fit":
+        return cmd_fit(args, console)
     # "run" (explicit or injected default) runs the benchmark
     return cmd_run(args, console)
 
