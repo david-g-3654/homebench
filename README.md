@@ -198,9 +198,11 @@ Contributions welcome — new providers, task packs, and metrics especially.
 
 ## Roadmap
 
-- PyPI release
-- HTML / shareable report export
-- Per-run environment capture (OS, RAM, GPU) for comparable results
+- [x] PyPI release
+- [ ] HTML / shareable report export
+- [ ] Per-run environment capture (OS, RAM, GPU) for comparable results
+- [ ] Community task-pack sharing
+- [ ] GitHub Action for automated benchmarking in CI
 
 ## License
 
