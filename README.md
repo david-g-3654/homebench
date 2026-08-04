@@ -2,9 +2,12 @@
 
 **Benchmark the local LLMs you already have — speed, memory, *and* quality — as a live terminal leaderboard.**
 
+[![CI](https://github.com/david-g-3654/homebench/actions/workflows/ci.yml/badge.svg)](https://github.com/david-g-3654/homebench/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/homebench)](https://pypi.org/project/homebench/)
 ![Python](https://img.shields.io/pypi/pyversions/homebench)
 ![License](https://img.shields.io/pypi/l/homebench)
+
+![homebench demo](docs/demo.svg)
 
 `homebench` is a single-command TUI that discovers the models installed in your local runner (**Ollama**, **LM Studio**, **llama.cpp**, **vLLM**, or any **OpenAI-compatible** server), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
 
@@ -94,16 +97,19 @@ Run `homebench --help` for the full flag list.
 
 ### Example output
 
+A real quick-suite run on an Apple M1 (16 GB), via Ollama:
+
 ```
-                             Final leaderboard
-┏━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━┓
-┃ # ┃ Model        ┃ Params ┃ Quality ┃  Pass ┃ tok/s ┃  TTFT ┃ Memory ┃
-┡━━━╇━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━┩
-│ 1 │ qwen3:8b     │   8.2B │    87%  │ 27/31 │  22.4 │ 210ms │ 5.2 GB │
-│ 2 │ llama3.2     │   3.2B │    77%  │ 24/31 │  23.1 │ 150ms │ 2.4 GB │
-│ 3 │ gemma3:4b    │   4.3B │    71%  │ 22/31 │  15.3 │ 360ms │ 3.5 GB │
-└───┴──────────────┴────────┴─────────┴───────┴───────┴───────┴────────┘
+                               Final leaderboard
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━┓
+┃ # ┃ Model                ┃ Params ┃ Quality ┃ Pass ┃ tok/s ┃   TTFT ┃ Memory ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━┩
+│ 1 │ llama3.2:latest      │   3.2B │     75% │  6/8 │  16.8 │ 545 ms │ 2.4 GB │
+│ 2 │ alibayram/smollm3    │   3.1B │     38% │  3/8 │  16.9 │ 829 ms │ 2.1 GB │
+└───┴──────────────────────┴────────┴─────────┴──────┴───────┴────────┴────────┘
 ```
+
+(Numbers are for *that* laptop at *that* moment — see [Limitations](#limitations).)
 
 ## Providers
 
@@ -223,6 +229,16 @@ homebench fit --online --refresh    # bypass the 1-day cache
 Results are cached under `$HOMEBENCH_HOME` (`~/.homebench`), so repeat runs are fast and work offline; if the Hub is unreachable, `homebench` falls back to the cache (or the built-in catalog).
 
 The built-in catalog also ships each model's **Ollama tag** (`ollama pull …`) and **HuggingFace repo** (which LM Studio and vLLM pull from). Add your own with a JSON catalog (see [`examples/models.example.json`](examples/models.example.json)): a list of `{name, params_b, family?, ollama?, hf?}`. Sizes are estimates (weights + KV cache + overhead), so treat "fits"/"tight" as guidance. Add `--json FILE` to export the hardware profile and results.
+
+## Limitations
+
+`homebench` is a fast, local **first look** — not a rigorous benchmark of record. Keep these in mind:
+
+- **Quality is a signal, not a leaderboard of record.** The suite is small and English-only (8 tasks in the fast default, 31 with `--full`); it's designed to *separate* your models, not to rank them authoritatively. For serious evals use [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness). The optional LLM-as-judge is noisy, especially with small local judges.
+- **Speed is your-machine-at-that-moment.** tok/s and TTFT depend on current load, thermal state, and memory pressure — a busy laptop (or swapping when low on RAM) will read slower. Numbers are meaningful *relative* to each other on the same run, not as absolute model specs.
+- **Memory is best-effort.** It uses the runner's resident size where exposed (Ollama `/api/ps`, LM Studio `/api/v0`) plus RSS sampling; on unified-memory Macs it's approximate, and client-timed for OpenAI-compatible backends.
+- **`fit` sizes are estimates** (weights + KV cache + overhead) — treat "fits/tight" as guidance, not a guarantee. HuggingFace param counts come from safetensors metadata, which is missing for GGUF-only or gated repos.
+- **Throughput scaling only appears on batching servers** (vLLM, etc.); a single local model serializes requests.
 
 ## Development
 
