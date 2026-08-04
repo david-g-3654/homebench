@@ -65,6 +65,9 @@ class RunConfig:
     run_speed: bool = True
     # Custom task suite (from user packs); None => the built-in suite.
     suite: Optional[List[Task]] = None
+    quick: bool = True              # default to the fast curated subset
+    use_cache: bool = True          # reuse cached deterministic responses
+    refresh_cache: bool = False     # ignore existing cache, overwrite it
 
     def to_dict(self) -> dict:
         return {
@@ -80,16 +83,21 @@ class RunConfig:
             "judge_model": self.judge_model,
             "run_quality": self.run_quality,
             "run_speed": self.run_speed,
+            "quick": self.quick,
         }
 
 
 def resolve_suite(config: "RunConfig", judge_present: bool) -> List[Task]:
     """The effective task list for a run.
 
-    Uses the config's custom suite if provided, else the built-in suite.
-    Open-ended (grader-less) tasks are dropped unless a judge is available.
+    Uses the config's custom suite if provided, else the built-in suite
+    (the quick subset unless ``config.quick`` is False). Open-ended
+    (grader-less) tasks are dropped unless a judge is available.
     """
-    base = config.suite if config.suite is not None else default_suite(include_open=True)
+    if config.suite is not None:
+        base = config.suite
+    else:
+        base = default_suite(include_open=True, quick=config.quick)
     if not (config.include_open and judge_present):
         return [t for t in base if t.grader is not None]
     return list(base)
@@ -105,6 +113,10 @@ class Runner:
         self.provider = provider
         self.config = config or RunConfig()
         self.judge = judge
+        self.cache = None
+        if self.config.use_cache:
+            from .cache import ResponseCache
+            self.cache = ResponseCache(enabled=True, refresh=self.config.refresh_cache)
 
     # ------------------------------------------------------------------
     def run(self, models: List[ModelInfo], observer: Observer = None) -> BenchmarkResult:
@@ -118,6 +130,8 @@ class Runner:
             report = self._run_model(model, observer)
             result.reports.append(report)
             _emit(observer, EV_MODEL_DONE, report=report)
+        if self.cache is not None:
+            self.cache.save()
         result.finished_at = time.time()
         _emit(observer, EV_RUN_DONE, result=result)
         return result
@@ -137,7 +151,7 @@ class Runner:
 
             if cfg.run_quality:
                 _emit(observer, EV_PHASE, model=model.name, phase="quality")
-                report.task_results = self._run_quality(model.name, observer)
+                report.task_results = self._run_quality(model, observer)
 
             if cfg.unload_between:
                 self.provider.unload(model.name)
@@ -182,54 +196,76 @@ class Runner:
         return best, mem
 
     # ------------------------------------------------------------------
-    def _run_quality(self, model: str, observer: Observer) -> List[TaskResult]:
+    def _run_quality(self, model: ModelInfo, observer: Observer) -> List[TaskResult]:
         suite = resolve_suite(self.config, self.judge is not None)
         results: List[TaskResult] = []
         for task in suite:
             tr = self._run_task(model, task)
             results.append(tr)
             _emit(
-                observer, EV_TASK_DONE, model=model, task_id=task.id,
+                observer, EV_TASK_DONE, model=model.name, task_id=task.id,
                 category=task.category, score=tr.score, passed=tr.passed,
             )
         return results
 
-    def _run_task(self, model: str, task: Task) -> TaskResult:
+    def _cached_response(self, model: ModelInfo, task: Task):
+        """Return (response, output_tokens) from cache, or None. Judge tasks and
+        non-deterministic (temperature>0) generations are never cached."""
         cfg = self.config
-        start = time.perf_counter()
-        try:
-            gen = self.provider.generate(
-                model, task.prompt,
-                max_tokens=task.max_tokens,
-                temperature=cfg.temperature,
-                seed=cfg.seed,
-                timeout=cfg.timeout,
-            )
-        except ProviderError as exc:
-            return TaskResult(
-                task.id, task.category, 0.0, False,
-                latency_s=time.perf_counter() - start,
-                detail=f"generation error: {exc}",
-            )
-        latency = time.perf_counter() - start
-        response = gen.text
+        if self.cache is None or task.grader is None or cfg.temperature != 0:
+            return None
+        key = self.cache.key(model.cache_id, task.id, task.prompt,
+                             task.max_tokens, cfg.temperature, cfg.seed)
+        hit = self.cache.get(key)
+        if hit is None:
+            return None
+        return hit["response"], int(hit.get("output_tokens", 0) or 0)
+
+    def _run_task(self, model: ModelInfo, task: Task) -> TaskResult:
+        cfg = self.config
+        cached = self._cached_response(model, task)
+        if cached is not None:
+            response, out_tokens = cached
+            latency = 0.0
+        else:
+            start = time.perf_counter()
+            try:
+                gen = self.provider.generate(
+                    model.name, task.prompt,
+                    max_tokens=task.max_tokens,
+                    temperature=cfg.temperature,
+                    seed=cfg.seed,
+                    timeout=cfg.timeout,
+                )
+            except ProviderError as exc:
+                return TaskResult(
+                    task.id, task.category, 0.0, False,
+                    latency_s=time.perf_counter() - start,
+                    detail=f"generation error: {exc}",
+                )
+            latency = time.perf_counter() - start
+            response = gen.text
+            out_tokens = gen.speed.output_tokens
+            if self.cache is not None and task.grader is not None and cfg.temperature == 0:
+                key = self.cache.key(model.cache_id, task.id, task.prompt,
+                                     task.max_tokens, cfg.temperature, cfg.seed)
+                self.cache.set(key, response, out_tokens)
 
         if task.grader is not None:
             grade = task.grader(response)
         elif self.judge is not None:
             grade = self.judge.score(task.prompt, response, task.reference)
         else:
-            # open-ended task with no judge available: skip scoring
-            grade = None
+            grade = None  # open-ended task with no judge available
 
         if grade is None:
             return TaskResult(
                 task.id, task.category, 0.0, False, latency_s=latency,
-                output_tokens=gen.speed.output_tokens, response=response,
+                output_tokens=out_tokens, response=response,
                 detail="skipped (no grader/judge)",
             )
         return TaskResult(
             task.id, task.category, grade.score, grade.passed,
-            latency_s=latency, output_tokens=gen.speed.output_tokens,
+            latency_s=latency, output_tokens=out_tokens,
             response=response, detail=grade.detail,
         )

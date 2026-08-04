@@ -21,9 +21,15 @@ class ModelInfo:
     parameter_size: str = ""
     quantization: str = ""
     family: str = ""
+    digest: str = ""            # provider content hash; identifies a model version
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    @property
+    def cache_id(self) -> str:
+        """Stable identity for caching (digest if available, else name+size)."""
+        return self.digest or f"{self.name}:{self.size_bytes}"
 
 
 @dataclass

@@ -34,6 +34,7 @@ class Task:
     grader: Optional[Grader] = None   # None => open-ended, judge-only
     max_tokens: int = 256
     reference: str = ""               # ideal answer, shown to the judge
+    quick: bool = False               # part of the fast default subset
 
 
 _TASKS: List[Task] = [
@@ -41,13 +42,13 @@ _TASKS: List[Task] = [
     Task(
         "math_mult", "math",
         "What is 17 multiplied by 23?" + _MATH_SUFFIX,
-        exact_number(391), max_tokens=200, reference="391",
+        exact_number(391), max_tokens=200, reference="391", quick=True,
     ),
     Task(
         "math_word", "math",
         "A store had 48 apples. It sold three quarters of them, then received "
         "15 more. How many apples does the store have now?" + _MATH_SUFFIX,
-        exact_number(27), max_tokens=300, reference="27",
+        exact_number(27), max_tokens=300, reference="27", quick=True,
     ),
     Task(
         "math_rate", "math",
@@ -81,7 +82,7 @@ _TASKS: List[Task] = [
         "reason_seq", "reasoning",
         "Which number continues the sequence 2, 6, 12, 20, 30, ?\n"
         "A) 36  B) 42  C) 40  D) 44" + _MC_SUFFIX,
-        multiple_choice("B"), max_tokens=100, reference="B (42)",
+        multiple_choice("B"), max_tokens=100, reference="B (42)", quick=True,
     ),
     Task(
         "reason_logic", "reasoning",
@@ -89,7 +90,7 @@ _TASKS: List[Task] = [
         "be true?\nA) All roses fade quickly\nB) Some roses fade quickly\n"
         "C) It cannot be concluded whether any roses fade quickly\n"
         "D) No roses fade quickly" + _MC_SUFFIX,
-        multiple_choice("C"), max_tokens=100, reference="C",
+        multiple_choice("C"), max_tokens=100, reference="C", quick=True,
     ),
     Task(
         "reason_syllogism", "reasoning",
@@ -119,7 +120,7 @@ _TASKS: List[Task] = [
     Task(
         "fact_capital", "factual",
         "What is the capital city of Australia? Answer with just the city name.",
-        contains_any(["Canberra"]), max_tokens=60, reference="Canberra",
+        contains_any(["Canberra"]), max_tokens=60, reference="Canberra", quick=True,
     ),
     Task(
         "fact_element", "factual",
@@ -154,7 +155,7 @@ _TASKS: List[Task] = [
         'keys "name" and "age" describing a person named Alice who is 30 years '
         "old.",
         valid_json(["name", "age"]), max_tokens=120,
-        reference='{"name": "Alice", "age": 30}',
+        reference='{"name": "Alice", "age": 30}', quick=True,
     ),
     Task(
         "format_colors", "format",
@@ -180,7 +181,7 @@ _TASKS: List[Task] = [
         "Extract the email address from the following text and output only the "
         "address:\n\"Please contact us at support@example.com for assistance.\"",
         regex_match(r"support@example\.com"), max_tokens=60,
-        reference="support@example.com",
+        reference="support@example.com", quick=True,
     ),
     Task(
         "extract_year", "extraction",
@@ -199,7 +200,7 @@ _TASKS: List[Task] = [
         "code_eval", "code",
         "What does this Python expression evaluate to? len('hello') + 2\n"
         "End with the final answer on its own line.",
-        exact_number(7), max_tokens=150, reference="7",
+        exact_number(7), max_tokens=150, reference="7", quick=True,
     ),
     Task(
         "code_pow", "code",
@@ -260,16 +261,22 @@ _TASKS: List[Task] = [
 ]
 
 
-def default_suite(include_open: bool = False) -> List[Task]:
-    """Return the suite. Open-ended tasks are excluded unless a judge is on."""
-    if include_open:
-        return list(_TASKS)
-    return [t for t in _TASKS if t.category != "open"]
+def default_suite(include_open: bool = False, quick: bool = False) -> List[Task]:
+    """Return the suite.
+
+    ``include_open`` adds the judge-only open-ended tasks. ``quick`` returns
+    only the curated fast subset (one or two per category) — open tasks are
+    never in the quick subset.
+    """
+    tasks = list(_TASKS) if include_open else [t for t in _TASKS if t.category != "open"]
+    if quick:
+        tasks = [t for t in tasks if t.quick]
+    return tasks
 
 
-def suite_categories(include_open: bool = False) -> List[str]:
+def suite_categories(include_open: bool = False, quick: bool = False) -> List[str]:
     seen: List[str] = []
-    for t in default_suite(include_open):
+    for t in default_suite(include_open, quick):
         if t.category not in seen:
             seen.append(t.category)
     return seen

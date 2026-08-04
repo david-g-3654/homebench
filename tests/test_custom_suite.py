@@ -21,10 +21,18 @@ def test_resolve_suite_keeps_open_with_judge():
     assert [t.id for t in resolve_suite(cfg, judge_present=True)] == ["c1", "o1"]
 
 
-def test_resolve_suite_defaults_to_builtin():
+def test_resolve_suite_defaults_to_quick_builtin():
     from homebench.quality import default_suite
 
-    cfg = RunConfig()
+    cfg = RunConfig()  # quick=True by default
+    assert cfg.quick is True
+    assert len(resolve_suite(cfg, judge_present=False)) == len(default_suite(quick=True))
+
+
+def test_resolve_suite_full_when_quick_off():
+    from homebench.quality import default_suite
+
+    cfg = RunConfig(quick=False)
     assert len(resolve_suite(cfg, judge_present=False)) == len(default_suite())
 
 

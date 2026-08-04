@@ -60,14 +60,17 @@ Requires **Python 3.9+**.
 ## Usage
 
 ```bash
-homebench                        # discover all models, run the full benchmark (TUI)
+homebench                        # fast default: 3 smallest models, quick suite (TUI)
+homebench --all                  # benchmark every discovered model
+homebench --full                 # run the full quality suite (not just the fast subset)
 homebench --no-tui               # plain live renderer (great for piping / CI)
 homebench -m llama3.2,qwen3:8b   # only these models
-homebench --limit 3              # first 3 discovered models
+homebench --limit 3              # cap the number of models
 homebench --provider lmstudio    # use LM Studio instead of auto-detect
 homebench --provider llamacpp    # llama.cpp server (llama-server)
 homebench --provider vllm        # vLLM
 homebench --provider openai --host http://localhost:5000   # any OpenAI-compatible server
+homebench --refresh-cache        # recompute instead of reusing cached responses
 homebench --no-quality           # speed + memory only (fast)
 homebench --no-speed             # quality only
 homebench --judge qwen3:8b       # enable LLM-as-judge (adds open-ended tasks)
@@ -121,6 +124,16 @@ Auto-detection tries Ollama → LM Studio → llama.cpp → vLLM (the generic `o
 The suite is small on purpose — enough tasks across categories to *separate* models, few enough that every model runs in a couple of minutes on a laptop. Each task is graded deterministically (exact numeric match, multiple-choice letter, substring, valid-JSON, regex). Temperature is 0 and a fixed seed is used for reproducibility. See `homebench tasks` for the list.
 
 The optional `--judge MODEL` flag turns on an LLM-as-judge (any local model) that scores open-ended tasks 1–5 against a reference answer. It's a signal, not an oracle.
+
+### Fast by default
+
+Benchmarking every model on the full suite takes a while on a laptop, so the defaults are tuned for a quick first look:
+
+- **3 smallest models** by default (smallest first, so results appear fast) — `--all` for everything, `-m` to choose.
+- **A fast quality subset** (~8 tasks across all categories) — `--full` for all 31.
+- **Response caching**: quality runs use temperature 0 + a fixed seed, so responses are deterministic and cached under `~/.homebench`. Re-running only regenerates *new* models/tasks (unchanged ones are re-graded from cache in milliseconds); `--refresh-cache` forces recompute, `--no-cache` disables it.
+
+In practice this turns a first run from ~15–25 min (all models, full suite) into ~1–2 min, and a re-run into seconds. For a thorough pass (CI, final numbers) use `homebench --all --full`.
 
 ## Custom task packs
 
