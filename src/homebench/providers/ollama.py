@@ -56,6 +56,7 @@ class OllamaProvider(Provider):
                     parameter_size=details.get("parameter_size", ""),
                     quantization=details.get("quantization_level", ""),
                     family=details.get("family", ""),
+                    digest=(m.get("digest", "") or "")[:16],
                 )
             )
         models.sort(key=lambda x: x.name)

@@ -10,6 +10,8 @@ SUITE_SIZE = len(default_suite(include_open=False))
 
 def _run(**cfg_kwargs):
     provider = FakeProvider()
+    # These tests exercise the full suite; the quick subset has its own test.
+    cfg_kwargs.setdefault("quick", False)
     runner = Runner(provider, RunConfig(sample_rss=False, **cfg_kwargs))
     result = runner.run(provider.list_models())
     return provider, result
@@ -42,7 +44,7 @@ def test_unload_called_between_models():
 
 def test_events_emitted():
     provider = FakeProvider()
-    runner = Runner(provider, RunConfig(sample_rss=False))
+    runner = Runner(provider, RunConfig(sample_rss=False, quick=False))
     seen = []
     runner.run(provider.list_models(), observer=lambda ev, **d: seen.append(ev))
     assert "run_start" in seen

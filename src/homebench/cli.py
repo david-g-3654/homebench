@@ -27,7 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
     # ---- shared run options (also used when no subcommand is given) ----
     def add_run_options(sp: argparse.ArgumentParser) -> None:
         sp.add_argument("-m", "--models", default=None,
-                        help="comma-separated model names (default: all discovered)")
+                        help="comma-separated model names to benchmark")
+        sp.add_argument("--all", action="store_true",
+                        help="benchmark every discovered model "
+                             "(default: the 3 smallest)")
         sp.add_argument("--limit", type=int, default=None,
                         help="benchmark at most N models")
         sp.add_argument("--provider", default=None,
@@ -36,10 +39,12 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--host", default=None,
                         help="provider host URL (default: the provider's env var "
                              "or its standard localhost port)")
+        sp.add_argument("--full", action="store_true",
+                        help="run the full quality suite (default: a fast subset)")
         sp.add_argument("--max-tokens", type=int, default=256,
                         help="max tokens per quality task (default: 256)")
-        sp.add_argument("--speed-tokens", type=int, default=200,
-                        help="tokens to generate for the speed probe (default: 200)")
+        sp.add_argument("--speed-tokens", type=int, default=100,
+                        help="tokens to generate for the speed probe (default: 100)")
         sp.add_argument("--repeat", type=int, default=1,
                         help="speed-probe repetitions, best kept (default: 1)")
         sp.add_argument("--timeout", type=float, default=300.0,
@@ -76,6 +81,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="label to tag this run in history (for diffing)")
         sp.add_argument("--no-save", action="store_true",
                         help="don't save this run to the history store")
+        sp.add_argument("--no-cache", action="store_true",
+                        help="don't reuse cached quality responses")
+        sp.add_argument("--refresh-cache", dest="refresh_cache", action="store_true",
+                        help="ignore and overwrite the response cache")
 
     run_p = sub.add_parser("run", help="run the benchmark (default)")
     add_run_options(run_p)
@@ -185,6 +194,9 @@ def _select_models(provider, args, console: Console) -> List[ModelInfo]:
             f"No models found for provider {provider.name!r}. "
             "Pull one first, e.g. `ollama pull llama3.2`."
         )
+    # Smallest first, so the fast default and early results favor quick models.
+    by_size = sorted(available, key=lambda m: m.size_bytes or 0)
+
     if getattr(args, "models", None):
         wanted = [m.strip() for m in args.models.split(",") if m.strip()]
         by_name = {m.name: m for m in available}
@@ -198,9 +210,19 @@ def _select_models(provider, args, console: Console) -> List[ModelInfo]:
                 chosen.append(matches[0])
             else:
                 console.print(f"[yellow]warning:[/yellow] no model matching {w!r}")
-        selected = chosen or available
+        selected = chosen or by_size
+    elif getattr(args, "all", False):
+        selected = by_size
     else:
-        selected = available
+        # Fast default: the smallest few models. Everything via --all.
+        default_n = 3
+        selected = by_size[:default_n]
+        if len(by_size) > len(selected):
+            console.print(
+                f"[dim]Benchmarking the {len(selected)} smallest of "
+                f"{len(by_size)} models — use [b]--all[/b] for everything, "
+                f"or [b]-m name,…[/b] to choose.[/dim]"
+            )
     if getattr(args, "limit", None):
         selected = selected[: args.limit]
     return selected
@@ -243,6 +265,9 @@ def _build_runner(provider, args) -> Runner:
         run_quality=not args.no_quality,
         run_speed=not args.no_speed,
         suite=suite,
+        quick=not getattr(args, "full", False),
+        use_cache=not getattr(args, "no_cache", False),
+        refresh_cache=getattr(args, "refresh_cache", False),
     )
     return Runner(provider, config, judge=judge)
 
@@ -302,11 +327,17 @@ def cmd_tasks(args, console: Console) -> int:
     t.add_column("ID", style="bold")
     t.add_column("Category")
     t.add_column("Grading")
+    t.add_column("Quick", justify="center")
+    quick_n = 0
     for task in suite:
         grading = "deterministic" if task.grader is not None else "LLM judge"
-        t.add_row(task.id, task.category, grading)
+        is_quick = getattr(task, "quick", False)
+        quick_n += 1 if is_quick else 0
+        t.add_row(task.id, task.category, grading,
+                  "[green]✓[/green]" if is_quick else "")
     console.print(t)
-    console.print(f"[dim]{len(suite)} tasks[/dim]")
+    console.print(f"[dim]{len(suite)} tasks · {quick_n} in the fast default "
+                  "subset (the rest run with --full)[/dim]")
     return 0
 
 
@@ -493,6 +524,9 @@ def cmd_run(args, console: Console) -> int:
 
     if result is None:
         return 1
+    if runner.cache is not None and runner.cache.hits:
+        console.print(f"[dim]Reused {runner.cache.hits} cached quality "
+                      "response(s) — pass --refresh-cache to recompute.[/dim]")
     _export(result, args, console)
     if not getattr(args, "no_save", False):
         from .history import save_run

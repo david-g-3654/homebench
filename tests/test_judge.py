@@ -16,7 +16,8 @@ def test_runner_includes_open_tasks_with_judge():
 
     provider = FakeProvider()
     judge = LLMJudge(provider, "smart:8b")
-    runner = Runner(provider, RunConfig(sample_rss=False, include_open=True), judge=judge)
+    runner = Runner(provider, RunConfig(sample_rss=False, include_open=True, quick=False),
+                    judge=judge)
     result = runner.run([provider.list_models()[0]])
     r = result.reports[0]
     from homebench.quality import default_suite
