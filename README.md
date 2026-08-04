@@ -204,6 +204,8 @@ On a non-batching setup, aggregate throughput stays flat while latency climbs �
 
 ## What can my machine run?
 
+![homebench fit](docs/fit-demo.svg)
+
 Before benchmarking, `homebench fit` captures your hardware (RAM, CPU, GPU/VRAM, Apple unified memory) and checks a **catalog of ~50 popular models** — SmolLM2, Qwen2.5, Llama 3.x, Gemma 2, Phi-3.5/4, Mistral/Mixtral, DeepSeek-R1, CodeLlama, Yi, Command-R, and more, from 135M up to 141B — against your memory budget, showing which fit and at what quantization:
 
 ```bash
