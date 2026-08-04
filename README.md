@@ -7,7 +7,7 @@
 ![Python](https://img.shields.io/pypi/pyversions/homebench)
 ![License](https://img.shields.io/pypi/l/homebench)
 
-![homebench demo](docs/demo.svg)
+![homebench demo](https://cdn.jsdelivr.net/gh/david-g-3654/homebench@main/docs/demo.svg)
 
 `homebench` is a single-command TUI that discovers the models installed in your local runner (**Ollama**, **LM Studio**, **llama.cpp**, **vLLM**, or any **OpenAI-compatible** server), runs a curated quality suite, measures **tokens/sec**, **time-to-first-token**, and **memory footprint** on *your actual machine*, and renders a live comparison leaderboard.
 
@@ -204,7 +204,7 @@ On a non-batching setup, aggregate throughput stays flat while latency climbs �
 
 ## What can my machine run?
 
-![homebench fit](docs/fit-demo.svg)
+![homebench fit](https://cdn.jsdelivr.net/gh/david-g-3654/homebench@main/docs/fit-demo.svg)
 
 Before benchmarking, `homebench fit` captures your hardware (RAM, CPU, GPU/VRAM, Apple unified memory) and checks a **catalog of ~50 popular models** — SmolLM2, Qwen2.5, Llama 3.x, Gemma 2, Phi-3.5/4, Mistral/Mixtral, DeepSeek-R1, CodeLlama, Yi, Command-R, and more, from 135M up to 141B — against your memory budget, showing which fit and at what quantization:
 
