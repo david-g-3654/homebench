@@ -111,6 +111,15 @@ def build_parser() -> argparse.ArgumentParser:
                         help="base run: 'latest'/'prev', a 1-based index, or a path")
     diff_p.add_argument("b", nargs="?", default=None,
                         help="new run (default: latest)")
+    diff_p.add_argument("--fail-on-regression", dest="fail_on_regression",
+                        action="store_true",
+                        help="exit non-zero if a shared model regressed (for CI)")
+    diff_p.add_argument("--quality-threshold", dest="quality_threshold",
+                        type=float, default=5.0, metavar="PTS",
+                        help="quality-drop tolerance in points (default: 5)")
+    diff_p.add_argument("--speed-threshold", dest="speed_threshold",
+                        type=float, default=10.0, metavar="PCT",
+                        help="tok/s-drop tolerance in percent (default: 10)")
 
     report_p = sub.add_parser(
         "report", help="render a saved run as an HTML / Markdown report")
@@ -392,6 +401,23 @@ def cmd_diff(args, console: Console) -> int:
                       "different environments — not strictly apples-to-apples:")
         console.print(f"  base: [dim]{a_env}[/dim]")
         console.print(f"  new:  [dim]{b_env}[/dim]")
+
+    if getattr(args, "fail_on_regression", False):
+        from .history import regressions
+        regs = regressions(base, new, args.quality_threshold, args.speed_threshold)
+        if regs:
+            console.print("\n[red]✗ regressions detected:[/red]")
+            for r in regs:
+                if r.metric == "quality":
+                    console.print(f"  [bold]{r.model}[/bold]: quality "
+                                  f"{r.base:.0f}% → {r.new:.0f}% "
+                                  f"(−{r.drop:g} pts > {r.threshold:g})")
+                else:
+                    console.print(f"  [bold]{r.model}[/bold]: tok/s "
+                                  f"{r.base:.1f} → {r.new:.1f} "
+                                  f"(−{r.drop:g}% > {r.threshold:g}%)")
+            return 1
+        console.print("\n[green]✓ no regressions beyond thresholds[/green]")
     return 0
 
 
