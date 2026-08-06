@@ -82,12 +82,14 @@ homebench --add-tasks mypack.yaml  # add a pack on top of the built-in suite
 homebench --label "before tuning"  # tag this run for later diffing
 homebench --md results.md        # also export a Markdown report
 homebench --json results.json    # also export raw JSON
+homebench --html report.html     # self-contained, shareable HTML report
 
 homebench list                   # just list discovered models
 homebench tasks                  # show the quality suite (add --tasks to preview a pack)
 homebench history                # list past runs (saved automatically)
 homebench diff                   # diff the two most recent runs
 homebench diff 3 1               # diff run #3 (base) against run #1 (newer)
+homebench report latest --html run.html   # render any saved run as a report
 homebench throughput             # batch-throughput sweep (concurrency 1,2,4,8)
 homebench throughput --concurrency 1,8,16 --provider vllm
 homebench fit                    # which popular models fit YOUR hardware?
@@ -177,7 +179,16 @@ homebench diff 3             # run #3 -> latest
 homebench diff 3 1           # run #3 (base) -> run #1 (newer)
 ```
 
-`diff` compares models by name and shows per-model deltas in quality and throughput, plus which models were added or removed between runs — handy for "did that quantization / setting actually help?"
+`diff` compares models by name and shows per-model deltas in quality and throughput, plus which models were added or removed between runs — handy for "did that quantization / setting actually help?" Every run also captures the **environment** (OS, CPU, RAM, GPU, homebench + Python versions), so reports are reproducible and `diff` warns when two runs came from different machines.
+
+### Shareable reports
+
+Export a run as a **self-contained HTML page** (inline styles, CSS bars, theme-aware — no external assets, safe to email or drop in a gist):
+
+```bash
+homebench --html report.html          # from a fresh run
+homebench report latest --html run.html   # or render any saved run (also --md)
+```
 
 ## Batch throughput
 
@@ -259,10 +270,13 @@ Contributions welcome — new providers, task packs, and metrics especially.
 ## Roadmap
 
 - [x] PyPI release
-- [ ] HTML / shareable report export
-- [ ] Per-run environment capture (OS, RAM, GPU) for comparable results
+- [x] HTML / shareable report export
+- [x] Per-run environment capture (OS, RAM, GPU) for comparable results
+- [ ] A composite "best model for your laptop" value score
+- [ ] `homebench doctor` — diagnose provider / models / setup
+- [ ] MLX provider (Apple-Silicon-native)
+- [ ] Regression guard for CI (`diff --fail-on-regression`)
 - [ ] Community task-pack sharing
-- [ ] GitHub Action for automated benchmarking in CI
 
 ## License
 

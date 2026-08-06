@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as _html
 import json
 from datetime import datetime
 from typing import List, Optional
@@ -41,6 +42,39 @@ def _memory_display(r: ModelReport) -> str:
     # Prefer the provider's resident-model size; fall back to on-disk size.
     n = r.memory.size_bytes or r.model.size_bytes
     return fmt_bytes(n)
+
+
+# ---- environment -----------------------------------------------------------
+def _hw(env: dict) -> dict:
+    return (env or {}).get("hardware", {}) or {}
+
+
+def env_summary(env: dict) -> str:
+    """One-line host summary from a captured environment dict."""
+    hw = _hw(env)
+    parts: List[str] = []
+    if hw.get("os"):
+        os_part = f"{hw['os']} {hw.get('os_version', '')}".strip()
+        if hw.get("arch"):
+            os_part += f" ({hw['arch']})"
+        parts.append(os_part)
+    if hw.get("cpu"):
+        cpu = hw["cpu"]
+        if hw.get("cpu_cores"):
+            cpu += f" ×{hw['cpu_cores']}"
+        parts.append(cpu)
+    if hw.get("ram_total_bytes"):
+        parts.append(f"{fmt_bytes(hw['ram_total_bytes'])} RAM")
+    gpu = hw.get("gpu") or {}
+    if gpu.get("kind") == "nvidia" and gpu.get("vram_bytes"):
+        parts.append(f"{gpu.get('name', 'GPU')} {fmt_bytes(gpu['vram_bytes'])}")
+    elif gpu.get("kind") == "apple":
+        parts.append("Apple GPU (unified)")
+    if (env or {}).get("homebench_version"):
+        parts.append(f"homebench {env['homebench_version']}")
+    if hw.get("python_version"):
+        parts.append(f"Python {hw['python_version']}")
+    return " · ".join(parts)
 
 
 # ---- ranking ---------------------------------------------------------------
@@ -97,6 +131,9 @@ def to_markdown(result: BenchmarkResult) -> str:
     lines.append(f"- **Provider:** {result.provider}")
     lines.append(f"- **Run at:** {started}")
     lines.append(f"- **Models:** {len(result.reports)}")
+    env = env_summary(result.environment)
+    if env:
+        lines.append(f"- **Environment:** {env}")
     cfg = result.config or {}
     if cfg.get("judge_model"):
         lines.append(f"- **Judge:** {cfg['judge_model']}")
@@ -157,6 +194,118 @@ def _category_set(result: BenchmarkResult) -> List[str]:
 
 def to_json(result: BenchmarkResult, indent: int = 2) -> str:
     return json.dumps(result.to_dict(), indent=indent)
+
+
+# ---- HTML (self-contained, shareable) --------------------------------------
+_HTML_CSS = """
+:root { --bg:#fff; --fg:#1c2024; --muted:#6b7280; --line:#e5e7eb; --card:#f9fafb;
+        --q:#16a34a; --s:#2563eb; --bar-bg:#eef1f4; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#0f1115; --fg:#e6e8eb; --muted:#9aa4b2; --line:#232833; --card:#161a21;
+          --q:#22c55e; --s:#3b82f6; --bar-bg:#1c222c; } }
+* { box-sizing:border-box; }
+body { margin:0; padding:2rem 1rem; background:var(--bg); color:var(--fg);
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+.wrap { max-width:960px; margin:0 auto; }
+h1 { font-size:1.5rem; margin:0 0 .25rem; }
+h2 { font-size:1.05rem; margin:2rem 0 .75rem; }
+.sub { color:var(--muted); font-size:.9rem; margin:0 0 1rem; }
+.env { background:var(--card); border:1px solid var(--line); border-radius:8px;
+       padding:.6rem .9rem; color:var(--muted); font-size:.85rem; margin:0 0 1.5rem; }
+table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+th,td { text-align:left; padding:.55rem .6rem; border-bottom:1px solid var(--line); }
+th { color:var(--muted); font-weight:600; font-size:.78rem; text-transform:uppercase;
+     letter-spacing:.03em; }
+td.num,th.num { text-align:right; }
+.rank { color:var(--muted); }
+.model { font-weight:600; }
+.bar { position:relative; min-width:120px; }
+.bar .track { height:1.05rem; background:var(--bar-bg); border-radius:4px; overflow:hidden; }
+.bar .fill { height:100%; border-radius:4px; }
+.bar .fill.q { background:var(--q); } .bar .fill.s { background:var(--s); }
+.bar .val { position:absolute; right:.4rem; top:0; font-size:.8rem; line-height:1.05rem; }
+.err { color:#dc2626; font-weight:600; }
+footer { margin-top:2.5rem; color:var(--muted); font-size:.82rem;
+         border-top:1px solid var(--line); padding-top:1rem; }
+a { color:var(--s); }
+"""
+
+
+def _bar(value: Optional[float], vmax: float, cls: str, label: str) -> str:
+    pct = 0.0 if not value or vmax <= 0 else max(0.0, min(100.0, 100.0 * value / vmax))
+    return (f'<div class="bar"><div class="track">'
+            f'<div class="fill {cls}" style="width:{pct:.0f}%"></div></div>'
+            f'<span class="val">{_html.escape(label)}</span></div>')
+
+
+def to_html(result: BenchmarkResult, title: str = "homebench report") -> str:
+    ranked = rank_reports(result.reports)
+    ok = [r for r in ranked if not r.error]
+    max_q = max((r.quality_score or 0 for r in ok), default=100) or 100
+    max_tps = max((r.speed.tokens_per_sec for r in ok), default=1) or 1
+    when = datetime.fromtimestamp(result.started_at).strftime("%Y-%m-%d %H:%M:%S")
+    env = env_summary(result.environment)
+
+    rows = []
+    for i, r in enumerate(ranked, start=1):
+        name = _html.escape(r.model.name)
+        params = _html.escape(r.model.parameter_size or "–")
+        if r.error:
+            rows.append(
+                f'<tr><td class="rank">{i}</td><td class="model">{name}</td>'
+                f'<td class="num">{params}</td>'
+                f'<td colspan="5" class="err">error: {_html.escape(r.error)}</td></tr>')
+            continue
+        passed = f"{r.tasks_passed}/{len(r.task_results)}" if r.task_results else "–"
+        q = r.quality_score
+        rows.append(
+            f'<tr><td class="rank">{i}</td><td class="model">{name}</td>'
+            f'<td class="num">{params}</td>'
+            f'<td>{_bar(q, max_q, "q", fmt_quality(q))}</td>'
+            f'<td class="num">{passed}</td>'
+            f'<td>{_bar(r.speed.tokens_per_sec, max_tps, "s", fmt_tps(r.speed.tokens_per_sec))}</td>'
+            f'<td class="num">{fmt_ttft(r.speed.ttft_s)}</td>'
+            f'<td class="num">{_memory_display(r)}</td></tr>')
+
+    # per-category quality
+    cats = _category_set(result)
+    cat_html = ""
+    if cats:
+        head = "".join(f"<th class='num'>{_html.escape(c)}</th>" for c in cats)
+        body = []
+        for r in ranked:
+            if r.error:
+                continue
+            cells = []
+            for c in cats:
+                scores = [t.score for t in r.task_results if t.category == c]
+                cells.append(f"<td class='num'>{100*sum(scores)/len(scores):.0f}%</td>"
+                             if scores else "<td class='num'>–</td>")
+            body.append(f"<tr><td class='model'>{_html.escape(r.model.name)}</td>"
+                        + "".join(cells) + "</tr>")
+        cat_html = (f"<h2>Quality by category</h2><table><thead><tr>"
+                    f"<th>Model</th>{head}</tr></thead><tbody>"
+                    + "".join(body) + "</tbody></table>")
+
+    env_html = f'<div class="env">{_html.escape(env)}</div>' if env else ""
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{_html.escape(title)}</title><style>{_HTML_CSS}</style></head>
+<body><div class="wrap">
+<h1>{_html.escape(title)}</h1>
+<p class="sub">{_html.escape(result.provider)} · {len(result.reports)} model(s) · {when}</p>
+{env_html}
+<h2>Leaderboard</h2>
+<table><thead><tr><th class="num">#</th><th>Model</th><th class="num">Params</th>
+<th>Quality</th><th class="num">Pass</th><th>tok/s</th><th class="num">TTFT</th>
+<th class="num">Memory</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
+{cat_html}
+<footer>Generated by <a href="https://github.com/david-g-3654/homebench">homebench</a>
+— a local-first LLM benchmark. Numbers reflect this machine at run time; see the
+project's Limitations.</footer>
+</div></body></html>
+"""
 
 
 # ---- hardware / model-fit --------------------------------------------------

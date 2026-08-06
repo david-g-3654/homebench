@@ -7,8 +7,14 @@ cleanly to JSON and are trivial to test.
 from __future__ import annotations
 
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Dict, List, Optional
+
+
+def _pick(cls, d: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep only keys that are constructor fields of ``cls`` (ignore extras)."""
+    names = {f.name for f in fields(cls)}
+    return {k: v for k, v in (d or {}).items() if k in names}
 
 
 @dataclass
@@ -25,6 +31,10 @@ class ModelInfo:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "ModelInfo":
+        return cls(**_pick(cls, d))
 
     @property
     def cache_id(self) -> str:
@@ -53,6 +63,10 @@ class SpeedMetrics:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "SpeedMetrics":
+        return cls(**_pick(cls, d))
+
 
 @dataclass
 class MemoryMetrics:
@@ -70,6 +84,10 @@ class MemoryMetrics:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "MemoryMetrics":
+        return cls(**_pick(cls, d))
+
 
 @dataclass
 class TaskResult:
@@ -86,6 +104,10 @@ class TaskResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "TaskResult":
+        return cls(**_pick(cls, d))
 
 
 @dataclass
@@ -122,6 +144,16 @@ class ModelReport:
             "error": self.error,
         }
 
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "ModelReport":
+        return cls(
+            model=ModelInfo.from_dict(d.get("model", {})),
+            speed=SpeedMetrics.from_dict(d.get("speed", {})),
+            memory=MemoryMetrics.from_dict(d.get("memory", {})),
+            task_results=[TaskResult.from_dict(t) for t in d.get("task_results", [])],
+            error=d.get("error"),
+        )
+
 
 @dataclass
 class BenchmarkResult:
@@ -132,6 +164,7 @@ class BenchmarkResult:
     started_at: float = field(default_factory=time.time)
     finished_at: float = 0.0
     config: Dict[str, Any] = field(default_factory=dict)
+    environment: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -139,5 +172,17 @@ class BenchmarkResult:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "config": self.config,
+            "environment": self.environment,
             "reports": [r.to_dict() for r in self.reports],
         }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "BenchmarkResult":
+        return cls(
+            reports=[ModelReport.from_dict(r) for r in d.get("reports", [])],
+            provider=d.get("provider", ""),
+            started_at=float(d.get("started_at", 0) or 0),
+            finished_at=float(d.get("finished_at", 0) or 0),
+            config=d.get("config", {}) or {},
+            environment=d.get("environment", {}) or {},
+        )
