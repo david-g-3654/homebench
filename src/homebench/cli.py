@@ -71,6 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="write a Markdown report to FILE")
         sp.add_argument("--json", dest="json_out", default=None, metavar="FILE",
                         help="write raw JSON results to FILE")
+        sp.add_argument("--html", dest="html_out", default=None, metavar="FILE",
+                        help="write a self-contained shareable HTML report to FILE")
         sp.add_argument("--tasks", action="append", default=None, metavar="PACK",
                         help="use this task pack instead of the built-in suite "
                              "(JSON/YAML; repeatable)")
@@ -107,6 +109,15 @@ def build_parser() -> argparse.ArgumentParser:
                         help="base run: 'latest'/'prev', a 1-based index, or a path")
     diff_p.add_argument("b", nargs="?", default=None,
                         help="new run (default: latest)")
+
+    report_p = sub.add_parser(
+        "report", help="render a saved run as an HTML / Markdown report")
+    report_p.add_argument("ref", nargs="?", default="latest",
+                          help="run to render: 'latest'/'prev', index, or path")
+    report_p.add_argument("--html", dest="html_out", default=None, metavar="FILE",
+                          help="write a self-contained HTML report")
+    report_p.add_argument("--md", dest="md", default=None, metavar="FILE",
+                          help="write a Markdown report")
 
     tp = sub.add_parser(
         "throughput",
@@ -157,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-_COMMANDS = {"run", "list", "tasks", "history", "diff", "throughput", "fit"}
+_COMMANDS = {"run", "list", "tasks", "history", "diff", "throughput", "fit", "report"}
 
 
 def _inject_default_command(argv: List[str]) -> List[str]:
@@ -273,7 +284,7 @@ def _build_runner(provider, args) -> Runner:
 
 
 def _export(result, args, console: Console) -> None:
-    from .report import to_json, to_markdown
+    from .report import to_html, to_json, to_markdown
 
     if getattr(args, "md", None):
         with open(args.md, "w") as f:
@@ -283,6 +294,10 @@ def _export(result, args, console: Console) -> None:
         with open(args.json_out, "w") as f:
             f.write(to_json(result))
         console.print(f"[green]✓[/green] wrote JSON results to [bold]{args.json_out}[/bold]")
+    if getattr(args, "html_out", None):
+        with open(args.html_out, "w") as f:
+            f.write(to_html(result))
+        console.print(f"[green]✓[/green] wrote HTML report to [bold]{args.html_out}[/bold]")
 
 
 # ---------------------------------------------------------------------------
@@ -367,6 +382,42 @@ def cmd_diff(args, console: Console) -> int:
         console.print(f"[red]error:[/red] {exc}")
         return 1
     console.print(diff_table(base, new))
+    from .report import env_summary
+    a_env, b_env = env_summary(base.environment), env_summary(new.environment)
+    if a_env and b_env and a_env != b_env:
+        console.print("\n[yellow]note:[/yellow] these runs were captured in "
+                      "different environments — not strictly apples-to-apples:")
+        console.print(f"  base: [dim]{a_env}[/dim]")
+        console.print(f"  new:  [dim]{b_env}[/dim]")
+    return 0
+
+
+def cmd_report(args, console: Console) -> int:
+    from .history import HistoryError, resolve_ref
+    from .models import BenchmarkResult
+    from .report import env_summary, to_html, to_markdown
+
+    if not args.html_out and not args.md:
+        console.print("[red]error:[/red] choose an output — --html FILE and/or --md FILE")
+        return 1
+    try:
+        rec = resolve_ref(args.ref)
+    except HistoryError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+    result = BenchmarkResult.from_dict(rec.data)
+    title = f"homebench report — {rec.when}"
+    if args.html_out:
+        with open(args.html_out, "w") as f:
+            f.write(to_html(result, title=title))
+        console.print(f"[green]✓[/green] wrote HTML report to [bold]{args.html_out}[/bold]")
+    if args.md:
+        with open(args.md, "w") as f:
+            f.write(to_markdown(result))
+        console.print(f"[green]✓[/green] wrote Markdown report to [bold]{args.md}[/bold]")
+    env = env_summary(result.environment)
+    if env:
+        console.print(f"[dim]{rec.filename} · {env}[/dim]")
     return 0
 
 
@@ -566,6 +617,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return cmd_history(args, console)
     if command == "diff":
         return cmd_diff(args, console)
+    if command == "report":
+        return cmd_report(args, console)
     if command == "throughput":
         return cmd_throughput(args, console)
     if command == "fit":

@@ -88,6 +88,10 @@ class RunRecord:
         return self.data.get("label")
 
     @property
+    def environment(self) -> Dict[str, Any]:
+        return self.data.get("environment", {}) or {}
+
+    @property
     def reports(self) -> List[Dict[str, Any]]:
         return self.data.get("reports", []) or []
 

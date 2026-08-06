@@ -123,6 +123,7 @@ class Runner:
         result = BenchmarkResult(
             provider=self.provider.name,
             config=self.config.to_dict(),
+            environment=self._capture_environment(),
         )
         _emit(observer, EV_RUN_START, models=[m.name for m in models])
         for model in models:
@@ -135,6 +136,17 @@ class Runner:
         result.finished_at = time.time()
         _emit(observer, EV_RUN_DONE, result=result)
         return result
+
+    @staticmethod
+    def _capture_environment() -> dict:
+        """Snapshot the host + homebench version for reproducibility."""
+        from . import __version__
+        try:
+            from .hardware import capture
+            hw = capture().to_dict()
+        except Exception:
+            hw = {}
+        return {"homebench_version": __version__, "hardware": hw}
 
     # ------------------------------------------------------------------
     def _run_model(self, model: ModelInfo, observer: Observer) -> ModelReport:
