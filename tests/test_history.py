@@ -106,3 +106,42 @@ def test_home_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("HOMEBENCH_HOME", str(tmp_path))
     save_run(_make_result(1000.0, [("a", 10.0, 5, 10)]))  # no home arg -> uses env
     assert len(list_runs()) == 1
+
+
+# ---- regression detection --------------------------------------------------
+def _rec(started, models):
+    return history.RunRecord(path="x.json", data=_make_result(started, models).to_dict())
+
+
+def test_quality_regression_detected():
+    base = _rec(1000.0, [("m", 20.0, 8, 10)])   # 80%
+    new = _rec(2000.0, [("m", 20.0, 6, 10)])    # 60% -> -20 pts
+    regs = history.regressions(base, new)
+    assert len(regs) == 1
+    assert regs[0].metric == "quality" and regs[0].drop == 20.0
+
+
+def test_speed_regression_detected():
+    base = _rec(1000.0, [("m", 20.0, 8, 10)])
+    new = _rec(2000.0, [("m", 10.0, 8, 10)])    # -50% tok/s
+    regs = history.regressions(base, new)
+    assert len(regs) == 1 and regs[0].metric == "speed" and regs[0].drop == 50.0
+
+
+def test_within_thresholds_is_clean():
+    base = _rec(1000.0, [("m", 20.0, 8, 10)])
+    new = _rec(2000.0, [("m", 19.0, 8, 10)])    # -5% speed, same quality
+    assert history.regressions(base, new) == []
+
+
+def test_thresholds_are_tunable():
+    base = _rec(1000.0, [("m", 20.0, 8, 10)])
+    new = _rec(2000.0, [("m", 20.0, 7, 10)])    # -10 pts quality
+    assert history.regressions(base, new, quality_threshold=15.0) == []
+    assert len(history.regressions(base, new, quality_threshold=5.0)) == 1
+
+
+def test_non_shared_models_ignored():
+    base = _rec(1000.0, [("gone", 20.0, 9, 10)])
+    new = _rec(2000.0, [("fresh", 5.0, 1, 10)])
+    assert history.regressions(base, new) == []

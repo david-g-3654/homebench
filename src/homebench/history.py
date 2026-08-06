@@ -210,6 +210,47 @@ def _delta(new: Optional[float], old: Optional[float], suffix: str = "",
     return Text(body, style=style)
 
 
+@dataclass
+class Regression:
+    model: str
+    metric: str          # "quality" | "speed"
+    base: float
+    new: float
+    drop: float          # points (quality) or percent (speed)
+    threshold: float
+
+
+def regressions(base: RunRecord, new: RunRecord,
+                quality_threshold: float = 5.0,
+                speed_threshold: float = 10.0) -> List[Regression]:
+    """Models present in both runs whose quality or speed dropped past a threshold.
+
+    ``quality_threshold`` is in percentage points; ``speed_threshold`` is a
+    percent of the base tok/s. Only shared, non-errored models are compared.
+    """
+    by_a = {r.get("model", {}).get("name"): r for r in base.reports if not r.get("error")}
+    out: List[Regression] = []
+    for rb in new.reports:
+        if rb.get("error"):
+            continue
+        name = rb.get("model", {}).get("name")
+        ra = by_a.get(name)
+        if ra is None:
+            continue
+        qa, qb = ra.get("quality_score"), rb.get("quality_score")
+        if qa is not None and qb is not None and (qa - qb) > quality_threshold:
+            out.append(Regression(name, "quality", qa, qb, round(qa - qb, 1),
+                                  quality_threshold))
+        sa = (ra.get("speed") or {}).get("tokens_per_sec", 0) or 0
+        sb = (rb.get("speed") or {}).get("tokens_per_sec", 0) or 0
+        if sa > 0:
+            pct = (sa - sb) / sa * 100.0
+            if pct > speed_threshold:
+                out.append(Regression(name, "speed", sa, sb, round(pct, 1),
+                                      speed_threshold))
+    return out
+
+
 def diff_table(base: RunRecord, new: RunRecord) -> Table:
     """Compare two runs model-by-model (base = older, new = newer)."""
     by_name_a = {r.get("model", {}).get("name"): r for r in base.reports}

@@ -182,7 +182,14 @@ homebench diff 3             # run #3 -> latest
 homebench diff 3 1           # run #3 (base) -> run #1 (newer)
 ```
 
-`diff` compares models by name and shows per-model deltas in quality and throughput, plus which models were added or removed between runs — handy for "did that quantization / setting actually help?" Every run also captures the **environment** (OS, CPU, RAM, GPU, homebench + Python versions), so reports are reproducible and `diff` warns when two runs came from different machines.
+`diff` compares models by name and shows per-model deltas in quality and throughput, plus which models were added or removed between runs — handy for "did that quantization / setting actually help?"
+
+**Gate CI on it.** `--fail-on-regression` makes `diff` exit non-zero when a shared model's quality or speed drops past a threshold, so a prompt/config change that quietly makes a model worse fails the build:
+
+```bash
+homebench diff --fail-on-regression --quality-threshold 5 --speed-threshold 10
+# quality tolerance is in points, speed in percent of the base tok/s
+``` Every run also captures the **environment** (OS, CPU, RAM, GPU, homebench + Python versions), so reports are reproducible and `diff` warns when two runs came from different machines.
 
 ### Shareable reports
 
@@ -278,7 +285,7 @@ Contributions welcome — new providers, task packs, and metrics especially.
 - [x] A composite "best model for your laptop" value score
 - [x] `homebench doctor` — diagnose provider / models / setup
 - [x] MLX provider (Apple-Silicon-native)
-- [ ] Regression guard for CI (`diff --fail-on-regression`)
+- [x] Regression guard for CI (`diff --fail-on-regression`)
 - [ ] Community task-pack sharing
 
 ## License
