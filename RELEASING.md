@@ -52,11 +52,16 @@ built with [`build`](https://pypi.org/project/build/) and uploaded with
    twine upload dist/*
    ```
 
-6. Tag and push:
+6. Tag and push — this triggers the **Release** workflow
+   (`.github/workflows/release.yml`), which tests, builds, and **creates the
+   GitHub Release automatically** (generated notes + sdist/wheel attached):
 
    ```bash
-   git tag v<version> && git push --tags
+   git tag v<version> && git push origin v<version>
    ```
+
+   Don't run `gh release create` by hand — the workflow owns it. (You still run
+   `twine upload` yourself in step 5; PyPI publishing is not automated.)
 
 ## Notes
 
