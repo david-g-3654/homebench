@@ -138,23 +138,33 @@ def to_markdown(result: BenchmarkResult) -> str:
     if cfg.get("judge_model"):
         lines.append(f"- **Judge:** {cfg['judge_model']}")
     lines.append("")
+    from .score import value_scores, value_verdict
+
+    verdict = value_verdict(result.reports)
+    if verdict:
+        lines.append(f"> 🏆 **Best value for your laptop:** {verdict}")
+        lines.append("")
+
+    scores = value_scores(result.reports)
     lines.append("## Leaderboard")
     lines.append("")
-    lines.append("| # | Model | Params | Quality | Pass | tok/s | TTFT | Memory |")
-    lines.append("|---|-------|-------:|--------:|-----:|------:|-----:|-------:|")
+    lines.append("| # | Model | Params | Quality | Pass | tok/s | TTFT | Memory | Value |")
+    lines.append("|---|-------|-------:|--------:|-----:|------:|-----:|-------:|------:|")
     for i, r in enumerate(rank_reports(result.reports), start=1):
         if r.error:
             lines.append(
                 f"| {i} | {r.model.name} | {r.model.parameter_size or '–'} "
-                f"| error | – | – | – | – |"
+                f"| error | – | – | – | – | – |"
             )
             continue
         passed = f"{r.tasks_passed}/{len(r.task_results)}" if r.task_results else "–"
+        val = scores.get(r.model.name)
+        val_str = f"{val:g}" if val is not None else "–"
         lines.append(
             f"| {i} | {r.model.name} | {r.model.parameter_size or '–'} "
             f"| {fmt_quality(r.quality_score)} | {passed} "
             f"| {fmt_tps(r.speed.tokens_per_sec)} | {fmt_ttft(r.speed.ttft_s)} "
-            f"| {_memory_display(r)} |"
+            f"| {_memory_display(r)} | {val_str} |"
         )
     lines.append("")
 
@@ -211,7 +221,10 @@ h1 { font-size:1.5rem; margin:0 0 .25rem; }
 h2 { font-size:1.05rem; margin:2rem 0 .75rem; }
 .sub { color:var(--muted); font-size:.9rem; margin:0 0 1rem; }
 .env { background:var(--card); border:1px solid var(--line); border-radius:8px;
-       padding:.6rem .9rem; color:var(--muted); font-size:.85rem; margin:0 0 1.5rem; }
+       padding:.6rem .9rem; color:var(--muted); font-size:.85rem; margin:0 0 1rem; }
+.verdict { background:color-mix(in srgb, var(--q) 12%, var(--bg));
+           border:1px solid color-mix(in srgb, var(--q) 40%, var(--line));
+           border-radius:8px; padding:.7rem 1rem; margin:0 0 1.5rem; }
 table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
 th,td { text-align:left; padding:.55rem .6rem; border-bottom:1px solid var(--line); }
 th { color:var(--muted); font-weight:600; font-size:.78rem; text-transform:uppercase;
@@ -239,12 +252,16 @@ def _bar(value: Optional[float], vmax: float, cls: str, label: str) -> str:
 
 
 def to_html(result: BenchmarkResult, title: str = "homebench report") -> str:
+    from .score import value_scores, value_verdict
+
     ranked = rank_reports(result.reports)
     ok = [r for r in ranked if not r.error]
     max_q = max((r.quality_score or 0 for r in ok), default=100) or 100
     max_tps = max((r.speed.tokens_per_sec for r in ok), default=1) or 1
     when = datetime.fromtimestamp(result.started_at).strftime("%Y-%m-%d %H:%M:%S")
     env = env_summary(result.environment)
+    scores = value_scores(result.reports)
+    verdict = value_verdict(result.reports)
 
     rows = []
     for i, r in enumerate(ranked, start=1):
@@ -254,10 +271,12 @@ def to_html(result: BenchmarkResult, title: str = "homebench report") -> str:
             rows.append(
                 f'<tr><td class="rank">{i}</td><td class="model">{name}</td>'
                 f'<td class="num">{params}</td>'
-                f'<td colspan="5" class="err">error: {_html.escape(r.error)}</td></tr>')
+                f'<td colspan="6" class="err">error: {_html.escape(r.error)}</td></tr>')
             continue
         passed = f"{r.tasks_passed}/{len(r.task_results)}" if r.task_results else "–"
         q = r.quality_score
+        val = scores.get(r.model.name)
+        val_str = f"{val:g}" if val is not None else "–"
         rows.append(
             f'<tr><td class="rank">{i}</td><td class="model">{name}</td>'
             f'<td class="num">{params}</td>'
@@ -265,7 +284,8 @@ def to_html(result: BenchmarkResult, title: str = "homebench report") -> str:
             f'<td class="num">{passed}</td>'
             f'<td>{_bar(r.speed.tokens_per_sec, max_tps, "s", fmt_tps(r.speed.tokens_per_sec))}</td>'
             f'<td class="num">{fmt_ttft(r.speed.ttft_s)}</td>'
-            f'<td class="num">{_memory_display(r)}</td></tr>')
+            f'<td class="num">{_memory_display(r)}</td>'
+            f'<td class="num"><strong>{val_str}</strong></td></tr>')
 
     # per-category quality
     cats = _category_set(result)
@@ -288,6 +308,8 @@ def to_html(result: BenchmarkResult, title: str = "homebench report") -> str:
                     + "".join(body) + "</tbody></table>")
 
     env_html = f'<div class="env">{_html.escape(env)}</div>' if env else ""
+    verdict_html = (f'<div class="verdict">🏆 <strong>Best value for your laptop:</strong> '
+                    f'{_html.escape(verdict)}</div>') if verdict else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -296,10 +318,12 @@ def to_html(result: BenchmarkResult, title: str = "homebench report") -> str:
 <h1>{_html.escape(title)}</h1>
 <p class="sub">{_html.escape(result.provider)} · {len(result.reports)} model(s) · {when}</p>
 {env_html}
+{verdict_html}
 <h2>Leaderboard</h2>
 <table><thead><tr><th class="num">#</th><th>Model</th><th class="num">Params</th>
 <th>Quality</th><th class="num">Pass</th><th>tok/s</th><th class="num">TTFT</th>
-<th class="num">Memory</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
+<th class="num">Memory</th><th class="num">Value</th></tr></thead>
+<tbody>{''.join(rows)}</tbody></table>
 {cat_html}
 <footer>Generated by <a href="https://github.com/david-g-3654/homebench">homebench</a>
 — a local-first LLM benchmark. Numbers reflect this machine at run time; see the

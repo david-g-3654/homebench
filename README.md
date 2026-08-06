@@ -37,6 +37,7 @@ There are great tools for *one* half of this problem, but nothing local-first th
 | **TTFT** | Wall-clock time to the first streamed token (minus model-load time where the runner reports it). |
 | **Memory** | Resident model size when the runner exposes it (Ollama `/api/ps`, LM Studio `/api/v0`), plus a best-effort peak-RSS sample of the backend's processes. |
 | **Quality** | 31 deterministically-graded tasks across math, reasoning, factual recall, instruction-following/structured-output, extraction, and code understanding. Optional **LLM-as-judge** adds open-ended tasks (summaries, email, haiku, explanations). |
+| **Value** | A composite 0–100 score blending quality, tok/s, and memory (normalised *within your run*), so homebench can call the **🏆 best model for your laptop** — not just rank them. |
 
 ## Install
 
@@ -84,6 +85,7 @@ homebench --md results.md        # also export a Markdown report
 homebench --json results.json    # also export raw JSON
 homebench --html report.html     # self-contained, shareable HTML report
 
+homebench doctor                 # diagnose setup: provider, models, hardware, cache
 homebench list                   # just list discovered models
 homebench tasks                  # show the quality suite (add --tasks to preview a pack)
 homebench history                # list past runs (saved automatically)
@@ -272,8 +274,8 @@ Contributions welcome — new providers, task packs, and metrics especially.
 - [x] PyPI release
 - [x] HTML / shareable report export
 - [x] Per-run environment capture (OS, RAM, GPU) for comparable results
-- [ ] A composite "best model for your laptop" value score
-- [ ] `homebench doctor` — diagnose provider / models / setup
+- [x] A composite "best model for your laptop" value score
+- [x] `homebench doctor` — diagnose provider / models / setup
 - [ ] MLX provider (Apple-Silicon-native)
 - [ ] Regression guard for CI (`diff --fail-on-regression`)
 - [ ] Community task-pack sharing
