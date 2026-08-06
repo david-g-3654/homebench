@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 # Published to PyPI as "homebench" (the name "localbench" was already taken).
 [project]
 name = "homebench"
-version = "0.8.0"
+version = "0.9.0"
 description = "A single-command terminal UI that benchmarks the local LLMs you already have — speed, memory, and quality — on your own laptop."
 readme = "README.md"
 license = { text = "MIT" }
