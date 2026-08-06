@@ -1,6 +1,6 @@
 # homebench
 
-**Benchmark the local LLMs you already have — speed, memory, *and* quality — as a live terminal leaderboard.**
+**Benchmark the local LLMs you already have: speed, memory, *and* quality — as a live terminal leaderboard.**
 
 [![CI](https://github.com/david-g-3654/homebench/actions/workflows/ci.yml/badge.svg)](https://github.com/david-g-3654/homebench/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/homebench)](https://pypi.org/project/homebench/)
