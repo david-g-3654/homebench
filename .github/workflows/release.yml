@@ -1,0 +1,41 @@
+name: Release
+
+# Push a version tag (e.g. `git tag v0.9.0 && git push origin v0.9.0`) and this
+# builds + tests the release, then creates the GitHub Release automatically with
+# generated notes and the sdist/wheel attached.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0        # full history so notes can diff from the last tag
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install and test
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" build twine
+          pytest -q
+      - name: Build distributions
+        run: |
+          python -m build
+          twine check dist/*
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            dist/*
