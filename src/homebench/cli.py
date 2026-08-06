@@ -104,6 +104,8 @@ def build_parser() -> argparse.ArgumentParser:
     hist_p = sub.add_parser("history", help="list saved runs")
     hist_p.add_argument("--limit", type=int, default=20)
 
+    sub.add_parser("doctor", help="diagnose provider / models / setup")
+
     diff_p = sub.add_parser("diff", help="diff two saved runs (base -> new)")
     diff_p.add_argument("a", nargs="?", default=None,
                         help="base run: 'latest'/'prev', a 1-based index, or a path")
@@ -168,7 +170,8 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-_COMMANDS = {"run", "list", "tasks", "history", "diff", "throughput", "fit", "report"}
+_COMMANDS = {"run", "list", "tasks", "history", "diff", "throughput", "fit",
+             "report", "doctor"}
 
 
 def _inject_default_command(argv: List[str]) -> List[str]:
@@ -392,6 +395,35 @@ def cmd_diff(args, console: Console) -> int:
     return 0
 
 
+def cmd_doctor(args, console: Console) -> int:
+    from rich.table import Table
+
+    from .doctor import run_checks, summarize
+
+    checks = run_checks()
+    icons = {"ok": "[green]✓[/green]", "warn": "[yellow]⚠[/yellow]",
+             "fail": "[red]✗[/red]", "info": "[blue]i[/blue]"}
+    t = Table(title="homebench doctor", header_style="bold cyan", show_header=False)
+    t.add_column(justify="center")
+    t.add_column(style="bold")
+    t.add_column()
+    for c in checks:
+        t.add_row(icons.get(c.status, "?"), c.name, c.detail)
+    console.print(t)
+
+    fails, warns = summarize(checks)
+    if fails:
+        msg = f"[red]{fails} problem(s) to fix[/red]"
+        if warns:
+            msg += f", {warns} warning(s)"
+        console.print(f"\n{msg}")
+    elif warns:
+        console.print(f"\n[yellow]{warns} warning(s)[/yellow] — you can still benchmark")
+    else:
+        console.print("\n[green]All good — you're ready to benchmark.[/green]")
+    return 1 if fails else 0
+
+
 def cmd_report(args, console: Console) -> int:
     from .history import HistoryError, resolve_ref
     from .models import BenchmarkResult
@@ -575,6 +607,10 @@ def cmd_run(args, console: Console) -> int:
 
     if result is None:
         return 1
+    from .score import value_verdict
+    verdict = value_verdict(result.reports)
+    if verdict:
+        console.print(f"\n[bold green]🏆 Best value for your laptop:[/bold green] {verdict}")
     if runner.cache is not None and runner.cache.hits:
         console.print(f"[dim]Reused {runner.cache.hits} cached quality "
                       "response(s) — pass --refresh-cache to recompute.[/dim]")
@@ -613,6 +649,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return cmd_list(args, console)
     if command == "tasks":
         return cmd_tasks(args, console)
+    if command == "doctor":
+        return cmd_doctor(args, console)
     if command == "history":
         return cmd_history(args, console)
     if command == "diff":
