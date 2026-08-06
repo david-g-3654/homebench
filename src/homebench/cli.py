@@ -34,7 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--limit", type=int, default=None,
                         help="benchmark at most N models")
         sp.add_argument("--provider", default=None,
-                        help="ollama|lmstudio|llamacpp|vllm|openai "
+                        help="ollama|lmstudio|llamacpp|vllm|mlx|openai "
                              "(default: auto-detect)")
         sp.add_argument("--host", default=None,
                         help="provider host URL (default: the provider's env var "

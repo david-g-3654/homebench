@@ -7,6 +7,7 @@ from typing import Dict, List, Type
 from .base import GenerationResult, Provider, ProviderError
 from .llamacpp import LlamaCppProvider
 from .lmstudio import LMStudioProvider
+from .mlx import MLXProvider
 from .ollama import OllamaProvider
 from .openai_compat import OpenAICompatibleProvider
 from .vllm import VLLMProvider
@@ -17,6 +18,7 @@ _PROVIDERS: Dict[str, Type[Provider]] = {
     LMStudioProvider.name: LMStudioProvider,
     LlamaCppProvider.name: LlamaCppProvider,
     VLLMProvider.name: VLLMProvider,
+    MLXProvider.name: MLXProvider,
     OpenAICompatibleProvider.name: OpenAICompatibleProvider,
 }
 
@@ -69,6 +71,7 @@ __all__ = [
     "LMStudioProvider",
     "LlamaCppProvider",
     "VLLMProvider",
+    "MLXProvider",
     "OpenAICompatibleProvider",
     "available_providers",
     "get_provider",

@@ -125,9 +125,10 @@ At least one local model runner must be reachable:
 | LM Studio | `lmstudio` | `http://localhost:1234` | `LMSTUDIO_HOST` | Enriches metadata + memory via native `/api/v0`. |
 | llama.cpp | `llamacpp` | `http://localhost:8080` | `LLAMACPP_HOST` | `llama-server`, OpenAI-compatible. |
 | vLLM | `vllm` | `http://localhost:8000` | `VLLM_HOST` | Set `VLLM_API_KEY` if started with `--api-key`. |
+| MLX | `mlx` | `http://localhost:8080` | `MLX_HOST` | Apple-Silicon-native (`mlx_lm.server`). Explicit-only (shares llama.cpp's port). |
 | OpenAI-compatible | `openai` | — | `OPENAI_BASE_URL` | Any `/v1` server (Jan, LocalAI, TGI, …); pass `--host`. |
 
-Auto-detection tries Ollama → LM Studio → llama.cpp → vLLM (the generic `openai` provider is explicit-only). Force one with `--provider`. Override host with `--host` or the env var above.
+Auto-detection tries Ollama → LM Studio → llama.cpp → vLLM (the `mlx` and generic `openai` providers are explicit-only). Force one with `--provider`. Override host with `--host` or the env var above.
 
 ## How quality grading works
 
@@ -276,7 +277,7 @@ Contributions welcome — new providers, task packs, and metrics especially.
 - [x] Per-run environment capture (OS, RAM, GPU) for comparable results
 - [x] A composite "best model for your laptop" value score
 - [x] `homebench doctor` — diagnose provider / models / setup
-- [ ] MLX provider (Apple-Silicon-native)
+- [x] MLX provider (Apple-Silicon-native)
 - [ ] Regression guard for CI (`diff --fail-on-regression`)
 - [ ] Community task-pack sharing
 

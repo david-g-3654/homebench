@@ -11,8 +11,22 @@ from homebench.providers.openai_compat import normalize_host
 
 
 def test_all_providers_registered():
-    for name in ("ollama", "lmstudio", "llamacpp", "vllm", "openai"):
+    for name in ("ollama", "lmstudio", "llamacpp", "vllm", "mlx", "openai"):
         assert name in available_providers()
+
+
+def test_mlx_provider():
+    from homebench.providers import MLXProvider, get_provider
+    from homebench.providers import _AUTO_DETECT
+
+    p = get_provider("mlx")
+    assert isinstance(p, MLXProvider)
+    assert p.host == "http://localhost:8080"
+    assert p.process_hint == "mlx_lm.server"
+    # explicit-only: not auto-detected (shares llama.cpp's port)
+    assert "mlx" not in _AUTO_DETECT
+    # unreachable is graceful
+    assert MLXProvider(host="http://127.0.0.1:9").is_available() is False
 
 
 def test_unknown_provider_raises():
