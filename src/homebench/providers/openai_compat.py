@@ -101,7 +101,8 @@ class OpenAICompatibleProvider(Provider):
 
         speed = SpeedMetrics()
         chunks: List[str] = []
-        delta_count = 0
+        content_deltas = 0
+        reasoning_deltas = 0
         start = time.perf_counter()
         first_token_at: Optional[float] = None
         usage = None
@@ -122,17 +123,35 @@ class OpenAICompatibleProvider(Provider):
                         obj = json.loads(data)
                     except json.JSONDecodeError:
                         continue
+                    # A server can fail mid-generation (e.g. a prompt over the
+                    # context window) by streaming an error object on a 200
+                    # response. Left unread, it looks like a generation that
+                    # produced nothing -- a 0.00 tok/s that reads as real.
+                    if isinstance(obj, dict) and obj.get("error"):
+                        raise ProviderError(
+                            f"{self.name} generate failed for {model!r}: "
+                            f"{_stream_error(obj['error'])}"
+                        )
                     if obj.get("usage"):
                         usage = obj["usage"]
                     for choice in obj.get("choices", []):
-                        piece = (choice.get("delta") or {}).get("content") or ""
+                        delta = choice.get("delta") or {}
+                        piece = delta.get("content") or ""
+                        # Reasoning models stream their tokens in
+                        # reasoning_content (llama.cpp, older vLLM) or
+                        # reasoning (newer vLLM) and send content: null. They
+                        # cost the same compute, so they count as output.
+                        thought = (delta.get("reasoning_content") or
+                                   delta.get("reasoning") or "")
+                        if (piece or thought) and first_token_at is None:
+                            first_token_at = time.perf_counter()
                         if piece:
-                            if first_token_at is None:
-                                first_token_at = time.perf_counter()
                             chunks.append(piece)
-                            delta_count += 1
+                            content_deltas += 1
                             if on_token is not None:
                                 on_token(piece)
+                        if thought:
+                            reasoning_deltas += 1
         except httpx.HTTPError as exc:
             raise ProviderError(f"{self.name} generate failed for {model!r}: {exc}")
 
@@ -142,7 +161,8 @@ class OpenAICompatibleProvider(Provider):
             speed.prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
             speed.output_tokens = int(usage.get("completion_tokens", 0) or 0)
         else:
-            speed.output_tokens = delta_count  # best-effort: ~1 token per delta
+            # best-effort: ~1 token per delta
+            speed.output_tokens = content_deltas + reasoning_deltas
         if first_token_at is not None:
             speed.ttft_s = first_token_at - start
             speed.eval_s = max(0.0, end - first_token_at)
@@ -154,3 +174,10 @@ class OpenAICompatibleProvider(Provider):
     def memory(self, model: str) -> MemoryMetrics:
         # OpenAI-compatible servers don't expose memory; rely on RSS sampling.
         return MemoryMetrics()
+
+
+def _stream_error(err) -> str:
+    """Human-readable text of an error object streamed inside a 200 response."""
+    if isinstance(err, dict):
+        return str(err.get("message") or err)
+    return str(err)
